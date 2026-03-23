@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;0,900;1,400&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply bg-surface text-on-surface font-sans antialiased; }
+  ::selection { @apply bg-primary/30 text-white; }
+}
+
+@layer components {
+  .glass {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-8 py-4 bg-primary text-on-primary font-bold rounded-sm
+           hover:brightness-110 active:scale-95 transition-all duration-300;
+  }
+  .btn-outline {
+    @apply inline-flex items-center gap-2 px-8 py-4 border border-secondary text-secondary font-bold rounded-sm
+           hover:bg-secondary/10 active:scale-95 transition-all duration-300;
+  }
+  .section-label {
+    @apply text-xs font-bold uppercase tracking-[0.2em] text-primary/70 mb-4;
+  }
+  .input-field {
+    @apply w-full bg-transparent border-0 border-b border-on-surface/20 px-0 py-3 text-on-surface
+           placeholder-on-surface/30 focus:outline-none focus:border-secondary transition-colors duration-200;
+  }
+  .status-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #0b1326; }
+::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #ffb4a5; }
