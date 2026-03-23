@@ -15,8 +15,9 @@ const PORT = process.env.PORT || 4000;
 
 app.use(cors({
   origin: [
-    "https://artstudio-silk.vercel.app",   // твой фронтенд на Vercel
-    "http://localhost:3000"                // для локальной разработки
+    "https://artstudio-silk.vercel.app",
+    "https://artstudio-fflpd9zc0-ugust.vercel.app", // 👈 ВОТ ЭТО ДОБАВЬ
+    "http://localhost:3000"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
