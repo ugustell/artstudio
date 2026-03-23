@@ -1,11 +1,11 @@
 // This is your Prisma schema file
 generator client {
   provider = "prisma-client-js"
+  url = env("DATABASE_URL")
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model User {
