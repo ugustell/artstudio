@@ -3,15 +3,31 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 
-const ordersRouter          = require('./routes/orders');
-const pricesRouter          = require('./routes/prices');
-const adminRouter           = require('./routes/admin');
+const ordersRouter            = require('./routes/orders');
+const pricesRouter            = require('./routes/prices');
+const adminRouter             = require('./routes/admin');
 const { router: usersRouter } = require('./routes/users');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
+/* ----------------------  FIXED CORS  ---------------------- */
+
+app.use(cors({
+  origin: [
+    "https://artstudio-silk.vercel.app",   // твой фронтенд на Vercel
+    "http://localhost:3000"                // для локальной разработки
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Разрешаем preflight для всех маршрутов
+app.options("*", cors());
+
+/* ---------------------------------------------------------- */
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
