@@ -20,20 +20,37 @@ function formatDate(d) {
 
 // ─── Модальное окно деталей заказа ──────────────────────────────────────────
 function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }) {
-  const [status, setStatus] = useState(order.status);
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus]     = useState(order.status);
+  const [issueDate, setIssueDate] = useState(order.issueDate || '');
+  const [saving, setSaving]     = useState(false);
 
   const save = async () => {
     setSaving(true);
     try {
-      await fetch(`${apiBase}/api/orders/${order.id}`, {
+      const body = { status };
+      // Если статус меняется на "доставлен" и дата выдачи не указана — ставим сегодня
+      if (status === 'delivered' && !issueDate) {
+        body.issueDate = new Date().toISOString().split('T')[0];
+      } else if (issueDate) {
+        body.issueDate = issueDate;
+      }
+      const res = await fetch(`${apiBase}/api/orders/${order.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Ошибка сохранения: ${err.error || res.status}`);
+        setSaving(false);
+        return;
+      }
       onStatusChange(order.id, status);
       onClose();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка соединения с сервером');
+    }
     setSaving(false);
   };
 
@@ -71,7 +88,11 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
               ['Размер',     order.size],
               ['Оформление', order.format],
               ['Обработка',  order.design],
+              ['Кол-во',     order.quantity || 1],
               ['Стоимость',  `${order.totalPrice?.toLocaleString('ru-RU')} ₽`],
+              ['Аванс',      `${(order.prepayment || 0).toLocaleString('ru-RU')} ₽`],
+              ['Остаток',    `${((order.totalPrice || 0) - (order.prepayment || 0)).toLocaleString('ru-RU')} ₽`],
+              ['Срок',       order.deadline || '—'],
             ].map(([label, val]) => (
               <div key={label} className="bg-white/5 rounded-lg p-4">
                 <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-1">{label}</div>
@@ -101,6 +122,14 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
               </div>
             </div>
           )}
+
+          {/* Issue date */}
+          <div className="mb-6">
+            <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-3">Дата выдачи</div>
+            <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)}
+              className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+            <p className="text-xs text-on-surface/30 mt-1">Заполняется при передаче работы клиенту</p>
+          </div>
 
           {/* Status change */}
           <div className="mb-6">
@@ -222,7 +251,462 @@ function PricesModal({ onClose, apiBase, token }) {
   );
 }
 
-// ─── Главная страница админки ────────────────────────────────────────────────
+// ─── Модальное окно отчётов ──────────────────────────────────────────────────
+function ReportsModal({ onClose, apiBase, token }) {
+  const [activeReport, setActiveReport] = useState('receipt'); // receipt | unfinished | accepted | completed | byTechnique
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo]     = useState('');
+  const [onDate, setOnDate]     = useState('');
+  const [technique, setTechnique] = useState('');
+  const [orderId, setOrderId]   = useState('');
+  const [result, setResult]     = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+
+  const fetchReport = async () => {
+    setLoading(true); setError(''); setResult(null);
+    try {
+      let url = '';
+      const params = new URLSearchParams();
+      params.set('limit', '1000');
+
+      if (activeReport === 'receipt') {
+        if (!orderId) { setError('Укажите номер заказа'); setLoading(false); return; }
+        url = `${apiBase}/api/orders/${orderId}`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) { setError('Заказ не найден'); setLoading(false); return; }
+        const data = await res.json();
+        setResult({ type: 'receipt', order: data });
+        setLoading(false); return;
+      }
+
+      if (activeReport === 'unfinished') {
+        if (!onDate) { setError('Укажите дату'); setLoading(false); return; }
+      }
+      if (['accepted', 'completed', 'byTechnique'].includes(activeReport)) {
+        if (!dateFrom || !dateTo) { setError('Укажите период'); setLoading(false); return; }
+      }
+      if (activeReport === 'byTechnique' && !technique) {
+        setError('Укажите технику исполнения'); setLoading(false); return;
+      }
+
+      // Загружаем все заказы и фильтруем на клиенте
+      url = `${apiBase}/api/orders?${params}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      const orders = data.orders || [];
+
+      if (activeReport === 'unfinished') {
+        const d = new Date(onDate); d.setHours(23,59,59,999);
+        const filtered = orders.filter(o =>
+          o.status !== 'delivered' && o.deadline && new Date(o.deadline) <= d
+        );
+        setResult({ type: 'unfinished', orders: filtered, onDate });
+      }
+
+      if (activeReport === 'accepted') {
+        const from = new Date(dateFrom); from.setHours(0,0,0,0);
+        const to   = new Date(dateTo);   to.setHours(23,59,59,999);
+        const filtered = orders.filter(o => {
+          const d = new Date(o.createdAt);
+          return d >= from && d <= to && o.status !== 'delivered';
+        });
+        setResult({ type: 'accepted', orders: filtered, dateFrom, dateTo });
+      }
+
+      if (activeReport === 'completed') {
+        const from = new Date(dateFrom); from.setHours(0,0,0,0);
+        const to   = new Date(dateTo);   to.setHours(23,59,59,999);
+        const filtered = orders.filter(o => {
+          if (o.status !== 'delivered') return false;
+          // Используем issueDate если есть, иначе createdAt
+          const d = o.issueDate ? new Date(o.issueDate) : new Date(o.createdAt);
+          return d >= from && d <= to;
+        });
+        setResult({ type: 'completed', orders: filtered, dateFrom, dateTo });
+      }
+
+      if (activeReport === 'byTechnique') {
+        const from = new Date(dateFrom); from.setHours(0,0,0,0);
+        const to   = new Date(dateTo);   to.setHours(23,59,59,999);
+        const filtered = orders.filter(o => {
+          const d = new Date(o.createdAt);
+          return d >= from && d <= to &&
+            (o.design || '').toLowerCase().includes(technique.toLowerCase());
+        });
+        setResult({ type: 'byTechnique', orders: filtered, dateFrom, dateTo, technique });
+      }
+    } catch (e) {
+      setError('Ошибка загрузки данных');
+    }
+    setLoading(false);
+  };
+
+  const fmt = (d) => d ? new Date(d).toLocaleDateString('ru-RU') : '—';
+  const money = (n) => Number(n || 0).toLocaleString('ru-RU') + ' ₽';
+  const total = (arr) => arr.reduce((s, o) => s + (o.totalPrice || 0), 0);
+
+  const printReport = () => window.print();
+
+  const TABS = [
+    { id: 'receipt',    label: 'В-01 Квитанция'                     },
+    { id: 'unfinished', label: 'В-02 Невыполненные на дату'          },
+    { id: 'accepted',   label: 'В-03 Принятые за период'             },
+    { id: 'completed',  label: 'В-04 Выполненные за период'          },
+    { id: 'byTechnique',label: 'В-05 По технике за период'           },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#1a1a2e] border border-white/10 rounded-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 md:p-8">
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-serif text-2xl font-bold text-on-surface">Отчёты</h2>
+            <div className="flex gap-3">
+              {result && (
+                <button onClick={printReport} className="text-sm px-4 py-2 bg-secondary/20 text-secondary rounded-lg hover:bg-secondary/30 transition-colors">
+                  🖨 Печать
+                </button>
+              )}
+              <button onClick={onClose} className="text-on-surface/40 hover:text-on-surface text-2xl leading-none">×</button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => { setActiveReport(t.id); setResult(null); setError(''); }}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                  activeReport === t.id ? 'bg-secondary text-surface' : 'bg-white/5 text-on-surface/60 hover:bg-white/10'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Form inputs */}
+          <div className="bg-white/5 rounded-xl p-5 mb-6">
+            {activeReport === 'receipt' && (
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Номер заказа</label>
+                  <input type="number" value={orderId} onChange={e => setOrderId(e.target.value)} placeholder="Например: 5"
+                    className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+                </div>
+                <button onClick={fetchReport} disabled={loading}
+                  className="btn-primary py-2 px-6 disabled:opacity-50">
+                  {loading ? '...' : 'Сформировать'}
+                </button>
+              </div>
+            )}
+
+            {activeReport === 'unfinished' && (
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">На дату</label>
+                  <input type="date" value={onDate} onChange={e => setOnDate(e.target.value)}
+                    className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+                </div>
+                <button onClick={fetchReport} disabled={loading} className="btn-primary py-2 px-6 disabled:opacity-50">
+                  {loading ? '...' : 'Сформировать'}
+                </button>
+              </div>
+            )}
+
+            {['accepted', 'completed'].includes(activeReport) && (
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex-1 min-w-[140px]">
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">С</label>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+                </div>
+                <div className="flex-1 min-w-[140px]">
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">По</label>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+                </div>
+                <button onClick={fetchReport} disabled={loading} className="btn-primary py-2 px-6 disabled:opacity-50">
+                  {loading ? '...' : 'Сформировать'}
+                </button>
+              </div>
+            )}
+
+            {activeReport === 'byTechnique' && (
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex-1 min-w-[180px]">
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Техника исполнения</label>
+                  <input type="text" value={technique} onChange={e => setTechnique(e.target.value)} placeholder="Масло, Акварель..."
+                    className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+                </div>
+                <div className="flex-1 min-w-[130px]">
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">С</label>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+                </div>
+                <div className="flex-1 min-w-[130px]">
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">По</label>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    className="w-full bg-transparent border-b border-on-surface/20 py-2 text-on-surface focus:outline-none focus:border-secondary transition-colors" />
+                </div>
+                <button onClick={fetchReport} disabled={loading} className="btn-primary py-2 px-6 disabled:opacity-50">
+                  {loading ? '...' : 'Сформировать'}
+                </button>
+              </div>
+            )}
+
+            {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+          </div>
+
+          {/* ─── Результаты ─── */}
+          {result && (
+
+            <div className="print-area">
+
+              {/* В-01: Квитанция */}
+              {result.type === 'receipt' && (() => {
+                const o = result.order;
+                const remainder = (o.totalPrice || 0) - 0; // аванс не хранится пока
+                return (
+                  <div className="bg-white/5 rounded-xl p-6">
+                    <div className="text-center mb-6">
+                      <div className="font-serif text-xl font-bold text-on-surface">КВИТАНЦИЯ №{o.id}</div>
+                      <div className="text-on-surface/50 text-sm">от {fmt(o.createdAt)}</div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4 mb-6 text-sm">
+                      <div><span className="text-on-surface/40">ФИО клиента:</span> <span className="text-on-surface font-medium">{o.clientName}</span></div>
+                      <div><span className="text-on-surface/40">Телефон:</span> <span className="text-on-surface font-medium">{o.phone}</span></div>
+                      <div><span className="text-on-surface/40">Email:</span> <span className="text-on-surface font-medium">{o.email}</span></div>
+                      <div><span className="text-on-surface/40">Дата исполнения:</span> <span className="text-on-surface font-medium">{o.deadline || '—'}</span></div>
+                    </div>
+                    <div className="overflow-x-auto mb-4">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/20">
+                            {['№', 'Размер', 'Оформление', 'Техника', 'Кол-во', 'Цена за ед.', 'Скидка/надбавка', 'Итого'].map(h => (
+                              <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs font-semibold">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-white/10">
+                            <td className="px-3 py-3 text-on-surface/70">1</td>
+                            <td className="px-3 py-3 text-on-surface">{o.size}</td>
+                            <td className="px-3 py-3 text-on-surface">{o.format}</td>
+                            <td className="px-3 py-3 text-on-surface">{o.design}</td>
+                            <td className="px-3 py-3 text-on-surface">{o.quantity}</td>
+                            <td className="px-3 py-3 text-on-surface">{money(o.basePrice)}</td>
+                            <td className="px-3 py-3 text-on-surface">
+                              {o.discountPercent > 0 && <span className="text-green-400">−{o.discountPercent}%</span>}
+                              {o.surchargePercent > 0 && <span className="text-secondary"> +{o.surchargePercent}%</span>}
+                              {!o.discountPercent && !o.surchargePercent && '—'}
+                            </td>
+                            <td className="px-3 py-3 font-bold text-secondary">{money(o.totalPrice)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex justify-between items-center border-t border-white/20 pt-4">
+                      <span className="text-on-surface/50 text-sm">Итого по квитанции:</span>
+                      <span className="font-black text-2xl text-primary font-serif">{money(o.totalPrice)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-on-surface/50 text-sm">Аванс:</span>
+                      <span className="font-bold text-green-400">{money(o.prepayment || 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-on-surface/50 text-sm">Остаток:</span>
+                      <span className="font-bold text-secondary">{money((o.totalPrice || 0) - (o.prepayment || 0))}</span>
+                    </div>
+                    {(o.discountPercent > 0 || o.discountReason) && (
+                      <div className="mt-2 text-green-400 text-xs">Скидка: {o.discountReason} ({o.discountPercent}%)</div>
+                    )}
+                    {(o.surchargePercent > 0 || o.surchargeReason) && (
+                      <div className="mt-1 text-secondary text-xs">Надбавка: {o.surchargeReason} (+{o.surchargePercent}%)</div>
+                    )}
+                    {o.comments && (
+                      <div className="mt-4 text-on-surface/40 text-xs">Примечание: {o.comments}</div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* В-02: Невыполненные на дату */}
+              {result.type === 'unfinished' && (
+                <div className="bg-white/5 rounded-xl p-6">
+                  <div className="font-serif text-lg font-bold text-on-surface mb-1">Список невыполненных заказов</div>
+                  <div className="text-on-surface/40 text-sm mb-5">на дату: {fmt(result.onDate)}</div>
+                  {result.orders.length === 0 ? (
+                    <div className="text-on-surface/30 text-sm text-center py-8">Нет невыполненных заказов на эту дату</div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/20">
+                              {['№ заказа', 'Дата заказа', 'Дата исполнения', 'ФИО клиента', 'Телефон', 'Сумма'].map(h => (
+                                <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs font-semibold">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.orders.map(o => (
+                              <tr key={o.id} className="border-b border-white/5">
+                                <td className="px-3 py-3 text-on-surface font-medium">#{o.id}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.deadline || '—'}</td>
+                                <td className="px-3 py-3 text-on-surface">{o.clientName}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.phone}</td>
+                                <td className="px-3 py-3 text-secondary font-bold">{money(o.totalPrice)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-white/20 pt-4 mt-2">
+                        <span className="text-on-surface/50 text-sm">Итого по невыполненным ({result.orders.length}):</span>
+                        <span className="font-black text-xl text-primary font-serif">{money(total(result.orders))}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* В-03: Принятые за период */}
+              {result.type === 'accepted' && (
+                <div className="bg-white/5 rounded-xl p-6">
+                  <div className="font-serif text-lg font-bold text-on-surface mb-1">Список принятых заказов за период</div>
+                  <div className="text-on-surface/40 text-sm mb-5">с {fmt(result.dateFrom)} по {fmt(result.dateTo)}</div>
+                  {result.orders.length === 0 ? (
+                    <div className="text-on-surface/30 text-sm text-center py-8">Нет заказов за этот период</div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/20">
+                              {['Дата заказа', '№ заказа', 'ФИО клиента', 'Email', 'Телефон', 'Сумма'].map(h => (
+                                <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs font-semibold">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.orders.map(o => (
+                              <tr key={o.id} className="border-b border-white/5">
+                                <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
+                                <td className="px-3 py-3 text-on-surface font-medium">#{o.id}</td>
+                                <td className="px-3 py-3 text-on-surface">{o.clientName}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.email}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.phone}</td>
+                                <td className="px-3 py-3 text-secondary font-bold">{money(o.totalPrice)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-white/20 pt-4 mt-2">
+                        <span className="text-on-surface/50 text-sm">Итого по принятым заказам ({result.orders.length}):</span>
+                        <span className="font-black text-xl text-primary font-serif">{money(total(result.orders))}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* В-04: Выполненные за период */}
+              {result.type === 'completed' && (
+                <div className="bg-white/5 rounded-xl p-6">
+                  <div className="font-serif text-lg font-bold text-on-surface mb-1">Список выполненных заказов за период</div>
+                  <div className="text-on-surface/40 text-sm mb-5">с {fmt(result.dateFrom)} по {fmt(result.dateTo)}</div>
+                  {result.orders.length === 0 ? (
+                    <div className="text-on-surface/30 text-sm text-center py-8">Нет выполненных заказов за этот период</div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/20">
+                              {['№ заказа', 'Дата заказа', 'Дата исполнения', 'ФИО клиента', 'Телефон', 'Дата выдачи', 'Сумма'].map(h => (
+                                <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs font-semibold">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.orders.map(o => (
+                              <tr key={o.id} className="border-b border-white/5">
+                                <td className="px-3 py-3 text-on-surface font-medium">#{o.id}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.deadline || '—'}</td>
+                                <td className="px-3 py-3 text-on-surface">{o.clientName}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.phone}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.issueDate ? fmt(o.issueDate) : '—'}</td>
+                                <td className="px-3 py-3 text-secondary font-bold">{money(o.totalPrice)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-white/20 pt-4 mt-2">
+                        <span className="text-on-surface/50 text-sm">Итого по выполненным ({result.orders.length}):</span>
+                        <span className="font-black text-xl text-primary font-serif">{money(total(result.orders))}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* В-05: По технике за период */}
+              {result.type === 'byTechnique' && (
+                <div className="bg-white/5 rounded-xl p-6">
+                  <div className="font-serif text-lg font-bold text-on-surface mb-1">Список картин по технике исполнения</div>
+                  <div className="text-on-surface/40 text-sm mb-1">Техника: <span className="text-on-surface">{result.technique}</span></div>
+                  <div className="text-on-surface/40 text-sm mb-5">с {fmt(result.dateFrom)} по {fmt(result.dateTo)}</div>
+                  {result.orders.length === 0 ? (
+                    <div className="text-on-surface/30 text-sm text-center py-8">Нет заказов с такой техникой за этот период</div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-white/20">
+                              {['№ заказа', 'Дата заказа', 'ФИО клиента', 'Размер холста', 'Количество'].map(h => (
+                                <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs font-semibold">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.orders.map(o => (
+                              <tr key={o.id} className="border-b border-white/5">
+                                <td className="px-3 py-3 text-on-surface font-medium">#{o.id}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
+                                <td className="px-3 py-3 text-on-surface">{o.clientName}</td>
+                                <td className="px-3 py-3 text-on-surface/70">{o.size}</td>
+                                <td className="px-3 py-3 text-on-surface">{o.quantity}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-white/20 pt-4 mt-2">
+                        <span className="text-on-surface/50 text-sm">
+                          Итого картин: {result.orders.reduce((s, o) => s + (o.quantity || 1), 0)} шт. ({result.orders.length} заказов)
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [orders, setOrders] = useState([]);
@@ -234,7 +718,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showPrices, setShowPrices] = useState(false);
-  const [token, setToken] = useState('');
+  const [showReports, setShowReports] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   const [adminLogin, setAdminLogin] = useState('');
 
   const API = process.env.NEXT_PUBLIC_API_URL;
@@ -293,6 +778,12 @@ export default function AdminDashboard() {
             <button onClick={() => setShowPrices(true)} className="btn-outline text-sm py-2 px-5 hidden md:flex">
               Редактировать прайс
             </button>
+            <button onClick={() => setShowReports(true)} className="btn-outline text-sm py-2 px-5 hidden md:flex">
+              📊 Отчёты
+            </button>
+            <button onClick={() => setShowReports(true)} className="btn-outline text-sm py-2 px-5 hidden md:flex">
+              📊 Отчёты
+            </button>
             <a href="/" target="_blank" className="text-on-surface/40 hover:text-secondary text-sm transition-colors hidden md:block">Сайт ↗</a>
             <div className="flex items-center gap-2">
               <span className="text-on-surface/40 text-sm hidden md:block">{adminLogin}</span>
@@ -334,9 +825,10 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Mobile prices button */}
-          <div className="md:hidden mb-4">
-            <button onClick={() => setShowPrices(true)} className="btn-outline text-sm py-2 w-full justify-center">Редактировать прайс</button>
+          {/* Mobile buttons */}
+          <div className="md:hidden mb-4 flex gap-3">
+            <button onClick={() => setShowPrices(true)} className="btn-outline text-sm py-2 flex-1 justify-center">Прайс</button>
+            <button onClick={() => setShowReports(true)} className="btn-outline text-sm py-2 flex-1 justify-center">📊 Отчёты</button>
           </div>
 
           {/* Table */}
@@ -434,6 +926,9 @@ export default function AdminDashboard() {
       )}
       {showPrices && (
         <PricesModal onClose={() => setShowPrices(false)} apiBase={API} token={token} />
+      )}
+      {showReports && (
+        <ReportsModal onClose={() => setShowReports(false)} apiBase={API} token={token} />
       )}
     </>
   );

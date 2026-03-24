@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Справочники ──────────────────────────────────────────────────────────────
 
@@ -132,6 +133,8 @@ function Badge({ color, text }) {
 // ─── Главная страница формы ───────────────────────────────────────────────────
 
 export default function OrderPage() {
+  const { user, token } = useAuth();
+
   const [sizes, setSizes] = useState([]);
   const [loadingSizes, setLoadingSizes] = useState(true);
 
@@ -142,6 +145,7 @@ export default function OrderPage() {
     deadline: '',
     quantity: 1,
     comments: '',
+    prepayment: 0,
   });
 
   const [files, setFiles]     = useState([]);
@@ -164,6 +168,18 @@ export default function OrderPage() {
       .then(r => r.json()).then(setSizes).catch(() => setSizes([]))
       .finally(() => setLoadingSizes(false));
   }, []);
+
+  // Автозаполнение данных из профиля
+  useEffect(() => {
+    if (user) {
+      setForm(prev => ({
+        ...prev,
+        clientName: user.name  || prev.clientName,
+        phone:      user.phone || prev.phone,
+        email:      user.email || prev.email,
+      }));
+    }
+  }, [user]);
 
   // Пересчёт цены при любом изменении
   useEffect(() => {
@@ -231,7 +247,9 @@ export default function OrderPage() {
       const data = new FormData();
       Object.entries(form).forEach(([k, v]) => data.append(k, v));
       files.forEach(f => data.append('photos', f));
-      const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, { method: 'POST', body: data });
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, { method: 'POST', body: data, headers });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Ошибка сервера');
       setSuccess(json);
@@ -260,6 +278,18 @@ export default function OrderPage() {
           <p className="text-on-surface/60 mb-4">
             Итоговая стоимость: <span className="text-primary font-bold text-2xl">{success.totalPrice?.toLocaleString('ru-RU')} ₽</span>
           </p>
+          {success.prepayment > 0 && (
+            <div className="bg-white/5 rounded-xl p-4 mb-4 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-on-surface/50">Аванс:</span>
+                <span className="text-green-400 font-bold">{success.prepayment?.toLocaleString('ru-RU')} ₽</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface/50">Остаток при получении:</span>
+                <span className="text-secondary font-bold">{success.remainder?.toLocaleString('ru-RU')} ₽</span>
+              </div>
+            </div>
+          )}
           {success.discountPercent > 0 && (
             <p className="text-green-400 text-sm mb-1">✓ Скидка {success.discountPercent}% — {success.discountReason}</p>
           )}
@@ -272,7 +302,7 @@ export default function OrderPage() {
           <div className="flex gap-4 justify-center flex-wrap">
             <button onClick={() => {
               setSuccess(null);
-              setForm({ clientName:'',phone:'',email:'',size:'',format:'',design:'Масло — классическая техника',material:'Хлопковый холст (стандарт)',deadline:'',quantity:1,comments:'' });
+              setForm({ clientName:'',phone:'',email:'',size:'',format:'',design:'Масло — классическая техника',material:'Хлопковый холст (стандарт)',deadline:'',quantity:1,comments:'',prepayment:0 });
               setFiles([]);
             }} className="btn-outline">Новый заказ</button>
             <a href="/" className="btn-primary">На главную</a>
@@ -540,10 +570,58 @@ export default function OrderPage() {
               )}
             </div>
 
-            {/* ── 5. Комментарий ───────────────────────────────────── */}
+            {/* ── 5. Аванс ─────────────────────────────────────────── */}
+            {totalPrice > 0 && (
+              <div className="glass p-8 rounded-xl">
+                <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full border border-on-surface/20 flex items-center justify-center text-xs text-on-surface/40 shrink-0">5</span>
+                  Аванс
+                </h2>
+                <p className="text-on-surface/40 text-sm mb-5">
+                  Укажите сумму аванса (30–50% от стоимости). Остаток оплачивается при получении работы.
+                </p>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Сумма аванса (₽)</label>
+                    <input type="number" min="0" max={totalPrice}
+                      value={form.prepayment || ''}
+                      onChange={e => set('prepayment', Math.min(Number(e.target.value) || 0, totalPrice))}
+                      placeholder="0"
+                      className="input-field" />
+                  </div>
+                  <div className="flex flex-col justify-center space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-on-surface/50">Итого к оплате:</span>
+                      <span className="text-on-surface font-bold">{totalPrice.toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                    <div className="flex justify-between text-green-400">
+                      <span>Аванс:</span>
+                      <span className="font-bold">− {Number(form.prepayment || 0).toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/10 pt-2 mt-1">
+                      <span className="text-on-surface/50">Остаток при получении:</span>
+                      <span className="text-secondary font-bold">
+                        {(totalPrice - Number(form.prepayment || 0)).toLocaleString('ru-RU')} ₽
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5 flex-wrap">
+                  {[0.3, 0.4, 0.5].map(pct => (
+                    <button key={pct} type="button"
+                      onClick={() => set('prepayment', Math.round(totalPrice * pct))}
+                      className="text-xs px-4 py-2 glass rounded-lg text-on-surface/50 hover:text-secondary hover:border-secondary/40 border border-transparent transition-all">
+                      {Math.round(pct * 100)}% = {Math.round(totalPrice * pct).toLocaleString('ru-RU')} ₽
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── 6. Комментарий ───────────────────────────────────── */}
             <div className="glass p-8 rounded-xl">
               <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full border border-on-surface/10 flex items-center justify-center text-xs text-on-surface/30 shrink-0">5</span>
+                <span className="w-7 h-7 rounded-full border border-on-surface/10 flex items-center justify-center text-xs text-on-surface/30 shrink-0">6</span>
                 Пожелания к картине
               </h2>
               <textarea value={form.comments} onChange={e => set('comments', e.target.value)} rows={5}

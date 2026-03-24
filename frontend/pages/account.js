@@ -28,7 +28,7 @@ export default function AccountPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState('orders'); // orders | profile
-  const [profile, setProfile]   = useState({ name: '', phone: '' });
+  const [profile, setProfile]   = useState({ name: '', phone: '', address: '' });
   const [saveMsg, setSaveMsg]   = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -50,7 +50,7 @@ export default function AccountPage() {
 
   // Заполнить форму профиля
   useEffect(() => {
-    if (user) setProfile({ name: user.name || '', phone: user.phone || '' });
+    if (user) setProfile({ name: user.name || '', phone: user.phone || '', address: user.address || '' });
   }, [user]);
 
   const saveProfile = async (e) => {
@@ -223,6 +223,11 @@ export default function AccountPage() {
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Телефон</label>
                   <input type="tel" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
                     className="input-field" />
+                </div>
+                <div>
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Адрес</label>
+                  <input type="text" value={profile.address} onChange={e => setProfile(p => ({ ...p, address: e.target.value }))}
+                    placeholder="г. Тольятти, ул. Ленина, 5" className="input-field" />
                 </div>
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Email</label>

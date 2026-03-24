@@ -133,7 +133,7 @@ function calcPricing({ basePrice, quantity, deadline, design }) {
 
 // ─── POST /api/orders — создать заказ (публичный) ────────────────────────────
 router.post('/', upload.array('photos', 5), async (req, res) => {
-  const { clientName, phone, email, size, format, design, material, coating, comments, deadline, quantity } = req.body;
+  const { clientName, phone, email, size, format, design, material, coating, comments, deadline, quantity, prepayment } = req.body;
 
   if (!clientName || !phone || !email || !size || !format || !design) {
     return res.status(400).json({ error: 'Заполните все обязательные поля' });
@@ -173,6 +173,8 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
       } catch {}
     }
 
+    const prepaymentVal = Math.max(0, Number(prepayment) || 0);
+
     const order = await prisma.order.create({
       data: {
         clientName, phone, email, size, format, design,
@@ -187,6 +189,7 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
         surchargePercent: pricing.surchargePercent,
         surchargeReason:  pricing.surchargeReason,
         totalPrice:      pricing.totalPrice,
+        prepayment:      prepaymentVal,
         photoPaths:      JSON.stringify(photoPaths),
         status:          'new',
         userId,
@@ -194,11 +197,13 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
     });
 
     res.status(201).json({
-      success:         true,
-      orderId:         order.id,
-      totalPrice:      pricing.totalPrice,
-      discountPercent: pricing.discountPercent,
-      discountReason:  pricing.discountReason,
+      success:          true,
+      orderId:          order.id,
+      totalPrice:       pricing.totalPrice,
+      prepayment:       prepaymentVal,
+      remainder:        pricing.totalPrice - prepaymentVal,
+      discountPercent:  pricing.discountPercent,
+      discountReason:   pricing.discountReason,
       surchargePercent: pricing.surchargePercent,
       surchargeReason:  pricing.surchargeReason,
     });
@@ -210,7 +215,7 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
 
 // ─── GET /api/orders — список (admin) ────────────────────────────────────────
 router.get('/', auth, async (req, res) => {
-  const { status, search, page = 1, limit = 20 } = req.query;
+  const { status, search, page = 1, limit = 20, dateFrom, dateTo } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
   const where = {};
   if (status && status !== 'all') where.status = status;
@@ -220,6 +225,11 @@ router.get('/', auth, async (req, res) => {
       { phone:      { contains: search } },
       { email:      { contains: search } },
     ];
+  }
+  if (dateFrom || dateTo) {
+    where.createdAt = {};
+    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+    if (dateTo)   { const d = new Date(dateTo); d.setHours(23,59,59,999); where.createdAt.lte = d; }
   }
   try {
     const [orders, total] = await Promise.all([
@@ -246,13 +256,14 @@ router.get('/:id', auth, async (req, res) => {
 
 // ─── PATCH /api/orders/:id (admin) ───────────────────────────────────────────
 router.patch('/:id', auth, async (req, res) => {
-  const { status, comments } = req.body;
+  const { status, comments, issueDate } = req.body;
   const allowed = ['new', 'in_progress', 'ready', 'delivered'];
   if (status && !allowed.includes(status)) return res.status(400).json({ error: 'Недопустимый статус' });
   try {
     const data = {};
-    if (status)   data.status   = status;
-    if (comments !== undefined) data.comments = comments;
+    if (status)                    data.status    = status;
+    if (comments !== undefined)    data.comments  = comments;
+    if (issueDate !== undefined)   data.issueDate = issueDate;
     const order = await prisma.order.update({ where: { id: Number(req.params.id) }, data });
     res.json({ ...order, photoPaths: JSON.parse(order.photoPaths || '[]') });
   } catch { res.status(500).json({ error: 'Ошибка обновления' }); }
