@@ -10,7 +10,7 @@ const authOptional = require('../middleware/authOptional');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
+// ─── Multer ─────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, '..', 'uploads');
@@ -18,110 +18,44 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const unique = Date.now() + '-' + Math.random();
     cb(null, unique + path.extname(file.originalname));
   },
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ok = /jpeg|jpg|png|gif|webp|tiff/.test(
-      path.extname(file.originalname).toLowerCase()
-    );
-    ok ? cb(null, true) : cb(new Error('Разрешены только изображения'));
-  },
-});
+const upload = multer({ storage });
 
-// ─── Pricing ──────────────────────────────────────────────────────────────────
-function calcPricing({ basePrice, quantity, deadline, design }) {
-  const qty  = Number(quantity) || 1;
-  const base = Number(basePrice) || 0;
-
-  let surchargePercent = 0;
-  let surchargeReason  = '';
-
-  if (deadline) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const deadlineDate = new Date(deadline);
-    const daysLeft = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
-
-    if (daysLeft < 3) {
-      surchargePercent = 60;
-      surchargeReason = 'Очень срочный заказ';
-    } else if (daysLeft < 7) {
-      surchargePercent = 30;
-      surchargeReason = 'Срочный заказ';
-    } else if (daysLeft < 14) {
-      surchargePercent = 15;
-      surchargeReason = 'Ускоренный срок';
-    }
-  }
-
-  const d = (design || '').toLowerCase();
-
-  if (d.includes('ван гога') || d.includes('моне') || d.includes('климт')) {
-    surchargePercent = Math.max(surchargePercent, 30);
-  } else if (d.includes('портрет') || d.includes('реализм')) {
-    surchargePercent = Math.max(surchargePercent, 20);
-  }
-
-  let discountPercent = 0;
-
-  if (qty >= 10) discountPercent = 20;
-  else if (qty >= 5) discountPercent = 15;
-  else if (qty >= 3) discountPercent = 10;
-  else if (qty >= 2) discountPercent = 5;
-
-  const totalPrice = Math.round(
-    base * qty * (1 + surchargePercent / 100) * (1 - discountPercent / 100)
-  );
-
+// ─── CALC ───────────────────────────────────────────────
+function calcPricing({ basePrice, quantity }) {
+  const qty = Number(quantity) || 1;
   return {
     quantity: qty,
-    basePrice: base,
-    surchargePercent,
-    discountPercent,
-    totalPrice,
+    basePrice,
+    totalPrice: basePrice * qty,
+    discountPercent: 0,
+    surchargePercent: 0
   };
 }
 
-// ─── CREATE ORDER ─────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────
+// 🔥 CREATE ORDER
+// ───────────────────────────────────────────────────────
 router.post('/', authOptional, upload.array('photos', 5), async (req, res) => {
-  const {
-    clientName,
-    phone,
-    email,
-    size,
-    format,
-    design,
-    material,
-    coating,
-    comments,
-    deadline,
-    quantity,
-  } = req.body;
-
-  if (!clientName || !phone || !email || !size || !format || !design) {
-    return res.status(400).json({ error: 'Заполните все поля' });
-  }
-
   try {
+    const {
+      clientName, phone, email,
+      size, format, design,
+      material, coating,
+      comments, deadline,
+      quantity
+    } = req.body;
+
     const priceEntry = await prisma.price.findUnique({ where: { size } });
     const basePrice = priceEntry ? priceEntry.price : 0;
 
-    const pricing = calcPricing({
-      basePrice,
-      quantity,
-      deadline,
-      design,
-    });
+    const pricing = calcPricing({ basePrice, quantity });
 
-    const photoPaths = (req.files || []).map(
-      (f) => `/uploads/${f.filename}`
-    );
+    const photoPaths = (req.files || []).map(f => `/uploads/${f.filename}`);
 
     const order = await prisma.order.create({
       data: {
@@ -142,8 +76,8 @@ router.post('/', authOptional, upload.array('photos', 5), async (req, res) => {
         totalPrice: pricing.totalPrice,
         photoPaths: JSON.stringify(photoPaths),
         status: 'new',
-        userId: req.user ? req.user.id : null, // 🔥 ФИКС
-      },
+        userId: req.user ? req.user.id : null // 🔥 КЛЮЧЕВОЕ
+      }
     });
 
     res.json(order);
@@ -153,22 +87,24 @@ router.post('/', authOptional, upload.array('photos', 5), async (req, res) => {
   }
 });
 
-// ─── MY ORDERS ────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────
+// 🔥 МОИ ЗАКАЗЫ
+// ───────────────────────────────────────────────────────
 router.get('/my', auth, async (req, res) => {
   try {
     const orders = await prisma.order.findMany({
       where: {
-        userId: req.user.id,
+        userId: req.user.id
       },
       orderBy: {
-        createdAt: 'desc',
-      },
+        createdAt: 'desc'
+      }
     });
 
     res.json(
-      orders.map((o) => ({
+      orders.map(o => ({
         ...o,
-        photoPaths: JSON.parse(o.photoPaths || '[]'),
+        photoPaths: JSON.parse(o.photoPaths || '[]')
       }))
     );
   } catch (err) {
@@ -176,28 +112,63 @@ router.get('/my', auth, async (req, res) => {
   }
 });
 
-// ─── ADMIN LIST ───────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────
+// 🔥 ADMIN LIST (ВОССТАНОВЛЕННЫЙ)
+// ───────────────────────────────────────────────────────
 router.get('/', auth, async (req, res) => {
-  const orders = await prisma.order.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
+  const { status, search, page = 1, limit = 20 } = req.query;
 
-  res.json(
-    orders.map((o) => ({
-      ...o,
-      photoPaths: JSON.parse(o.photoPaths || '[]'),
-    }))
-  );
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const where = {};
+
+  if (status && status !== 'all') {
+    where.status = status;
+  }
+
+  if (search) {
+    where.OR = [
+      { clientName: { contains: search } },
+      { phone: { contains: search } },
+      { email: { contains: search } },
+    ];
+  }
+
+  try {
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Number(limit),
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.json({
+      orders: orders.map(o => ({
+        ...o,
+        photoPaths: JSON.parse(o.photoPaths || '[]'),
+      })),
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка получения заказов' });
+  }
 });
 
-// ─── UPDATE STATUS ────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────
+// 🔥 UPDATE STATUS
+// ───────────────────────────────────────────────────────
 router.patch('/:id', auth, async (req, res) => {
   const { status } = req.body;
 
   try {
     const order = await prisma.order.update({
       where: { id: Number(req.params.id) },
-      data: { status },
+      data: { status }
     });
 
     res.json(order);
@@ -206,4 +177,5 @@ router.patch('/:id', auth, async (req, res) => {
   }
 });
 
+// ───────────────────────────────────────────────────────
 module.exports = router;
