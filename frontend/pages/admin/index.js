@@ -788,9 +788,6 @@ export default function AdminDashboard() {
             <button onClick={() => setShowReports(true)} className="btn-outline text-sm py-2 px-5 hidden md:flex">
               📊 Отчёты
             </button>
-            <button onClick={() => setShowReports(true)} className="btn-outline text-sm py-2 px-5 hidden md:flex">
-              📊 Отчёты
-            </button>
             <a href="/" target="_blank" className="text-on-surface/40 hover:text-secondary text-sm transition-colors hidden md:block">Сайт ↗</a>
             <div className="flex items-center gap-2">
               <span className="text-on-surface/40 text-sm hidden md:block">{adminLogin}</span>
