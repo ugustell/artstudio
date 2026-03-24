@@ -719,12 +719,14 @@ export default function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showPrices, setShowPrices] = useState(false);
   const [showReports, setShowReports] = useState(false);
+  const [token, setToken] = useState('');
   const [adminLogin, setAdminLogin] = useState('');
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
-  // Auth check
+  // Auth check — только на клиенте
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const t = localStorage.getItem('admin_token');
     const l = localStorage.getItem('admin_login');
     if (!t) { router.replace('/admin/login'); return; }
@@ -749,7 +751,13 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  const logout = () => { localStorage.removeItem('admin_token'); localStorage.removeItem('admin_login'); router.push('/admin/login'); };
+  const logout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_login');
+    }
+    router.push('/admin/login');
+  };
 
   const onStatusChange = (id, status) => setOrders(o => o.map(x => x.id === id ? { ...x, status } : x));
   const onDelete = (id) => { setOrders(o => o.filter(x => x.id !== id)); setTotal(t => t - 1); };
