@@ -80,7 +80,7 @@ export default function Home() {
           <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&q=80" alt="" className="w-full h-full object-cover" />
         </div>
         <div className="absolute bottom-24 left-[4%] w-40 h-52 bg-surface-container border border-white/10 -rotate-12 animate-float-delayed rounded-lg overflow-hidden hidden lg:block opacity-40">
-          <img src="https://images.unsplash.com/photo-1529101091764-c3526daf38fe?w=400&q=80" alt="" className="w-full h-full object-cover" />
+          <img src="https://images.unsplash.com/photo-1549880338-65ddcdfd017b?w=400&q=80" alt="" className="w-full h-full object-cover" />
         </div>
 
         <div className="max-w-7xl mx-auto px-6 md:px-12 w-full relative z-10">
