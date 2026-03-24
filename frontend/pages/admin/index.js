@@ -719,7 +719,6 @@ export default function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showPrices, setShowPrices] = useState(false);
   const [showReports, setShowReports] = useState(false);
-  const [showReports, setShowReports] = useState(false);
   const [adminLogin, setAdminLogin] = useState('');
 
   const API = process.env.NEXT_PUBLIC_API_URL;
