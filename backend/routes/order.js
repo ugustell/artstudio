@@ -109,19 +109,22 @@ export default function OrderPage() {
     }
   }, [user]);
 
-  // При выборе комбинации — запрашиваем цену из прайс-листа
+  // При выборе комбинации — считаем базовую цену как сумму надбавок из справочников
   useEffect(() => {
     const { canvasSizeId, designTypeId, techniqueId, subjectId } = form;
     if (!canvasSizeId || !designTypeId || !techniqueId || !subjectId) {
       setUnitPrice(0); setTotalPrice(0); return;
     }
-    const params = new URLSearchParams({ canvasSizeId, designTypeId, techniqueId, subjectId });
-    fetch(`${API}/api/prices?${params}`)
+    // Используем /api/calc — бэкенд сам считает priceUnit по sizeId/formatId/designId/plotId
+    const params = new URLSearchParams({
+      sizeId:   canvasSizeId,   // canvasSizes → sizes
+      formatId: designTypeId,   // designTypes → formats
+      designId: techniqueId,    // techniques  → designs
+      plotId:   subjectId,      // subjects    → plots
+    });
+    fetch(`${API}/api/calc?${params}`)
       .then(r => r.json())
-      .then(data => {
-        const price = Array.isArray(data) && data[0] ? data[0].price : 0;
-        setUnitPrice(price);
-      })
+      .then(data => setUnitPrice(data.priceUnit || 0))
       .catch(() => setUnitPrice(0));
   }, [form.canvasSizeId, form.designTypeId, form.techniqueId, form.subjectId]);
 
@@ -177,18 +180,6 @@ export default function OrderPage() {
     if (!validate()) return;
     setLoading(true);
     try {
-      // Найти priceId для выбранной комбинации
-      const params = new URLSearchParams({
-        canvasSizeId: form.canvasSizeId,
-        designTypeId: form.designTypeId,
-        techniqueId:  form.techniqueId,
-        subjectId:    form.subjectId,
-      });
-      const pricesRes = await fetch(`${API}/api/prices?${params}`);
-      const pricesData = await pricesRes.json();
-      const priceRecord = Array.isArray(pricesData) && pricesData[0];
-      if (!priceRecord) throw new Error('Выбранная комбинация параметров не найдена в прайс-листе');
-
       const data = new FormData();
       data.append('clientName', form.clientName);
       data.append('phone',      form.phone);
@@ -196,8 +187,12 @@ export default function OrderPage() {
       data.append('deadline',   form.deadline);
       data.append('comments',   form.comments);
       data.append('prepayment', form.prepayment);
-      // items — массив позиций заказа
-      data.append('items', JSON.stringify([{ priceId: priceRecord.id, quantity: Number(form.quantity) || 1 }]));
+      data.append('quantity',   form.quantity);
+      // Маппинг: canvasSizes→sizeId, designTypes→formatId, techniques→designId, subjects→plotId
+      data.append('sizeId',   form.canvasSizeId);
+      data.append('formatId', form.designTypeId);
+      data.append('designId', form.techniqueId);
+      data.append('plotId',   form.subjectId);
       files.forEach(f => data.append('photos', f));
 
       const headers = {};
@@ -243,11 +238,11 @@ export default function OrderPage() {
               </div>
             </div>
           )}
-          {success.discount && success.discount.percent < 0 && (
-            <p className="text-green-400 text-sm mb-1">✓ Скидка {Math.abs(success.discount.percent)}% — {success.discount.description}</p>
+          {success.discountPercent > 0 && (
+            <p className="text-green-400 text-sm mb-1">✓ Скидка {success.discountPercent}% — {success.discountReason}</p>
           )}
-          {success.discount && success.discount.percent > 0 && (
-            <p className="text-secondary text-sm mb-1">⚡ Надбавка {success.discount.percent}% — {success.discount.description}</p>
+          {success.surchargePercent > 0 && (
+            <p className="text-secondary text-sm mb-1">⚡ Надбавка {success.surchargePercent}% — {success.surchargeReason}</p>
           )}
           <p className="text-on-surface/40 text-sm mt-6 mb-10">
             В течение 24 часов пришлём предварительный эскиз на вашу почту для согласования.
