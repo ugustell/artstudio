@@ -29,138 +29,123 @@ const upload = multer({
   },
 });
 
-// ─── Логика скидок и надбавок ────────────────────────────────────────────────
+// ─── Логика скидок ────────────────────────────────────────────────────────────
 //
-// НАДБАВКИ (увеличивают цену):
-//   Срочность по дате:
-//     < 3 дней  → +60% (очень срочно)
-//     3–6 дней  → +30% (срочно)
-//     7–13 дней → +15% (ускоренно)
-//     14+ дней  → 0%   (стандарт)
-//   Портрет/сложный сюжет (в технике есть слово «портрет» или «реализм»):
-//     → +20%
-//   Авторские стили (Ван Гог, Моне, Климт):
-//     → +30%
+// Скидки хранятся в таблице discounts.
+// При создании заказа подбирается подходящая скидка/надбавка.
 //
-// СКИДКИ (уменьшают цену):
-//   Количество картин в одном заказе:
-//     2 картины → −5%
-//     3–4       → −10%
-//     5–9       → −15%
-//     10+       → −20%
-//   Дальний срок (30+ дней):
-//     → −5% (художник может запланировать спокойно)
+// НАДБАВКИ (percent > 0): срочность, портрет, авторский стиль
+// СКИДКИ   (percent < 0): объём, дальний срок
 //
-// Итог = base × quantity × (1 + surcharge/100) × (1 − discount/100)
+// Итог позиции = price_per_unit × quantity
+// Итог заказа  = сумма позиций × (1 + discount.percent/100)
 
-function calcPricing({ basePrice, quantity, deadline, design }) {
-  const qty  = Number(quantity) || 1;
-  const base = Number(basePrice) || 0;
-
-  // ── Надбавка за срочность ──────────────────────────────────────────────
-  let surchargePercent = 0;
-  let surchargeReason  = '';
-
-  if (deadline) {
-    const today     = new Date();
-    today.setHours(0, 0, 0, 0);
-    const deadlineDate = new Date(deadline);
-    const daysLeft  = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
-
-    if (daysLeft < 3) {
-      surchargePercent = 60;
-      surchargeReason  = 'Очень срочный заказ (менее 3 дней)';
-    } else if (daysLeft < 7) {
-      surchargePercent = 30;
-      surchargeReason  = 'Срочный заказ (3–6 дней)';
-    } else if (daysLeft < 14) {
-      surchargePercent = 15;
-      surchargeReason  = 'Ускоренный срок (7–13 дней)';
-    }
-  }
-
-  // Надбавка за сложный стиль
-  const d = (design || '').toLowerCase();
-  const isComplex = d.includes('портрет') || d.includes('реализм');
-  const isAuthors = d.includes('ван гога') || d.includes('моне') || d.includes('климт');
-
-  if (isAuthors) {
-    surchargePercent = Math.max(surchargePercent, 30);
-    surchargeReason  = surchargeReason
-      ? surchargeReason + ' + авторский стиль'
-      : 'Авторский стиль (копия мастера)';
-  } else if (isComplex) {
-    surchargePercent = Math.max(surchargePercent, 20);
-    surchargeReason  = surchargeReason
-      ? surchargeReason + ' + сложный сюжет'
-      : 'Портрет / сложный реализм';
-  }
-
-  // ── Скидка за количество ───────────────────────────────────────────────
+async function findDiscount({ quantity, deadline, techniqueId }) {
   let discountPercent = 0;
-  let discountReason  = '';
+  let reason = null;
 
-  if (qty >= 10) {
-    discountPercent = 20; discountReason = 'Скидка за объём (10+ картин)';
-  } else if (qty >= 5) {
-    discountPercent = 15; discountReason = 'Скидка за объём (5–9 картин)';
-  } else if (qty >= 3) {
-    discountPercent = 10; discountReason = 'Скидка за объём (3–4 картины)';
-  } else if (qty >= 2) {
-    discountPercent = 5;  discountReason = 'Скидка за объём (2 картины)';
-  }
-
-  // Скидка за нескорый срок (30+ дней)
+  // Надбавка за срочность
   if (deadline) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const daysLeft = Math.ceil((new Date(deadline) - today) / (1000 * 60 * 60 * 24));
-    if (daysLeft >= 30 && surchargePercent === 0) {
-      discountPercent = Math.max(discountPercent, 5);
-      discountReason  = discountReason
-        ? discountReason + ' + длительный срок'
-        : 'Длительный срок (30+ дней)';
+    if      (daysLeft < 3)  { discountPercent = 60;  reason = 'Надбавка: очень срочный заказ (менее 3 дней)'; }
+    else if (daysLeft < 7)  { discountPercent = 30;  reason = 'Надбавка: срочный заказ (3–6 дней)'; }
+    else if (daysLeft < 14) { discountPercent = 15;  reason = 'Надбавка: ускоренный срок (7–13 дней)'; }
+    else if (daysLeft >= 30 && discountPercent === 0) {
+      discountPercent = -5; reason = 'Длительный срок (30+ дней)';
     }
   }
 
-  // ── Итоговая цена ─────────────────────────────────────────────────────
-  const totalPrice = Math.round(
-    base * qty * (1 + surchargePercent / 100) * (1 - discountPercent / 100)
-  );
+  // Надбавка за технику (авторский стиль / сложный сюжет)
+  if (techniqueId && discountPercent === 0) {
+    const technique = await prisma.technique.findUnique({ where: { id: Number(techniqueId) } });
+    if (technique) {
+      const t = technique.name.toLowerCase();
+      if (t.includes('ван гога') || t.includes('моне') || t.includes('климта')) {
+        discountPercent = 30; reason = 'Надбавка: авторский стиль (копия мастера)';
+      } else if (t.includes('реализм') || t.includes('портрет')) {
+        discountPercent = 20; reason = 'Надбавка: сложный сюжет / портрет';
+      }
+    }
+  }
 
-  return { basePrice: base, quantity: qty, surchargePercent, surchargeReason, discountPercent, discountReason, totalPrice };
+  // Скидка за объём
+  if (discountPercent === 0) {
+    const qty = Number(quantity) || 1;
+    if      (qty >= 10) { discountPercent = -20; reason = 'Скидка за объём (10+ картин)'; }
+    else if (qty >= 5)  { discountPercent = -15; reason = 'Скидка за объём (5–9 картин)'; }
+    else if (qty >= 3)  { discountPercent = -10; reason = 'Скидка за объём (3–4 картины)'; }
+    else if (qty >= 2)  { discountPercent = -5;  reason = 'Скидка за объём (2 картины)'; }
+  }
+
+  if (!reason) return null; // нет скидки/надбавки
+
+  // Найти или создать запись скидки
+  let discount = await prisma.discount.findFirst({ where: { percent: discountPercent, description: reason } });
+  if (!discount) {
+    discount = await prisma.discount.create({ data: { percent: discountPercent, description: reason } });
+  }
+  return discount;
 }
 
-// ─── POST /api/orders — создать заказ (публичный) ────────────────────────────
+// ─── POST /api/orders — создать заказ ────────────────────────────────────────
+// Body: { clientName, phone, email, items: [{priceId, quantity}], deadline, comments, prepayment }
+// photos: multipart files
 router.post('/', upload.array('photos', 5), async (req, res) => {
-  const { clientName, phone, email, size, format, design, material, coating, comments, deadline, quantity, prepayment } = req.body;
+  const { clientName, phone, email, deadline, comments, prepayment } = req.body;
 
-  if (!clientName || !phone || !email || !size || !format || !design) {
+  // items передаётся как JSON-строка: [{priceId, quantity}]
+  let items = [];
+  try {
+    items = JSON.parse(req.body.items || '[]');
+  } catch {
+    return res.status(400).json({ error: 'Некорректный формат items' });
+  }
+
+  if (!clientName || !phone || !email || !items.length) {
     return res.status(400).json({ error: 'Заполните все обязательные поля' });
   }
 
   try {
-    // Базовая цена из прайса
-    const priceEntry = await prisma.price.findUnique({ where: { size } });
-    const basePrice  = priceEntry ? priceEntry.price : 0;
+    // Получаем цены для всех позиций
+    const priceIds = items.map(i => Number(i.priceId));
+    const priceRecords = await prisma.price.findMany({
+      where: { id: { in: priceIds } },
+      include: { technique: true },
+    });
+    const priceMap = Object.fromEntries(priceRecords.map(p => [p.id, p]));
 
-    // Надбавка за оформление
-    const frameExtra = format.includes('раме') || format.includes('паспарту') || format.includes('float') ? 2500
-                     : format.includes('подрамнике') ? 800
-                     : format.includes('стеклом') ? 1500 : 0;
+    // Проверяем, что все priceId существуют
+    for (const item of items) {
+      if (!priceMap[item.priceId]) {
+        return res.status(400).json({ error: `Позиция прайса ${item.priceId} не найдена` });
+      }
+    }
 
-    // Надбавка за материал (льняной/музейный)
-    const matExtra = (material || '').includes('Льняной') && (material || '').includes('музейный') ? 1000
-                   : (material || '').includes('Льняной') ? 600
-                   : (material || '').includes('Hahnemühle') || (material || '').includes('Canson') ? 800
-                   : 0;
+    // Подсчёт позиций
+    const orderItemsData = items.map(item => {
+      const priceRec = priceMap[item.priceId];
+      const qty      = Number(item.quantity) || 1;
+      return {
+        priceId:      priceRec.id,
+        quantity:     qty,
+        pricePerUnit: priceRec.price,
+        total:        Math.round(priceRec.price * qty),
+      };
+    });
 
-    const base = basePrice + frameExtra + matExtra;
+    const subtotal     = orderItemsData.reduce((s, i) => s + i.total, 0);
+    const totalQty     = orderItemsData.reduce((s, i) => s + i.quantity, 0);
+    const firstTech    = priceRecords[0]?.techniqueId;
 
-    // Скидки и надбавки
-    const pricing = calcPricing({ basePrice: base, quantity, deadline, design });
+    // Скидка (на весь заказ)
+    const discount = await findDiscount({ quantity: totalQty, deadline, techniqueId: firstTech });
+    const factor   = discount ? (1 + discount.percent / 100) : 1;
+    const total    = Math.round(subtotal * factor);
 
-    const photoPaths = (req.files || []).map(f => `/uploads/${f.filename}`);
+    const photoPaths  = (req.files || []).map(f => `/uploads/${f.filename}`);
+    const prepaymentVal = Math.max(0, Number(prepayment) || 0);
 
     // Привязка к пользователю (если токен есть)
     let userId = null;
@@ -173,39 +158,31 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
       } catch {}
     }
 
-    const prepaymentVal = Math.max(0, Number(prepayment) || 0);
-
     const order = await prisma.order.create({
       data: {
-        clientName, phone, email, size, format, design,
-        material:        material  || '',
-        coating:         coating   || '',
-        comments:        comments  || '',
-        deadline:        deadline  || '',
-        quantity:        pricing.quantity,
-        basePrice:       pricing.basePrice,
-        discountPercent: pricing.discountPercent,
-        discountReason:  pricing.discountReason,
-        surchargePercent: pricing.surchargePercent,
-        surchargeReason:  pricing.surchargeReason,
-        totalPrice:      pricing.totalPrice,
-        prepayment:      prepaymentVal,
-        photoPaths:      JSON.stringify(photoPaths),
-        status:          'new',
         userId,
+        discountId: discount?.id || null,
+        totalPrice: total,
+        prepayment: prepaymentVal,
+        deadline:   deadline  || '',
+        comments:   comments  || '',
+        photoPaths: JSON.stringify(photoPaths),
+        status:     'new',
+        items: {
+          create: orderItemsData,
+        },
       },
+      include: { items: true, discount: true },
     });
 
     res.status(201).json({
-      success:          true,
-      orderId:          order.id,
-      totalPrice:       pricing.totalPrice,
-      prepayment:       prepaymentVal,
-      remainder:        pricing.totalPrice - prepaymentVal,
-      discountPercent:  pricing.discountPercent,
-      discountReason:   pricing.discountReason,
-      surchargePercent: pricing.surchargePercent,
-      surchargeReason:  pricing.surchargeReason,
+      success:        true,
+      orderId:        order.id,
+      subtotal,
+      discount:       discount ? { percent: discount.percent, description: discount.description } : null,
+      totalPrice:     total,
+      prepayment:     prepaymentVal,
+      remainder:      total - prepaymentVal,
     });
   } catch (err) {
     console.error(err);
@@ -216,14 +193,15 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
 // ─── GET /api/orders — список (admin) ────────────────────────────────────────
 router.get('/', auth, async (req, res) => {
   const { status, search, page = 1, limit = 20, dateFrom, dateTo } = req.query;
-  const skip = (Number(page) - 1) * Number(limit);
+  const skip  = (Number(page) - 1) * Number(limit);
   const where = {};
+
   if (status && status !== 'all') where.status = status;
   if (search) {
     where.OR = [
-      { clientName: { contains: search } },
-      { phone:      { contains: search } },
-      { email:      { contains: search } },
+      { user: { name:  { contains: search } } },
+      { user: { phone: { contains: search } } },
+      { user: { email: { contains: search } } },
     ];
   }
   if (dateFrom || dateTo) {
@@ -231,11 +209,34 @@ router.get('/', auth, async (req, res) => {
     if (dateFrom) where.createdAt.gte = new Date(dateFrom);
     if (dateTo)   { const d = new Date(dateTo); d.setHours(23,59,59,999); where.createdAt.lte = d; }
   }
+
   try {
     const [orders, total] = await Promise.all([
-      prisma.order.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take: Number(limit) }),
+      prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Number(limit),
+        include: {
+          user:     { select: { id: true, name: true, phone: true, email: true } },
+          discount: true,
+          items: {
+            include: {
+              price: {
+                include: {
+                  canvasSize: true,
+                  designType: true,
+                  technique:  true,
+                  subject:    true,
+                },
+              },
+            },
+          },
+        },
+      }),
       prisma.order.count({ where }),
     ]);
+
     res.json({
       orders: orders.map(o => ({ ...o, photoPaths: JSON.parse(o.photoPaths || '[]') })),
       total, page: Number(page), pages: Math.ceil(total / Number(limit)),
@@ -248,7 +249,25 @@ router.get('/', auth, async (req, res) => {
 // ─── GET /api/orders/:id (admin) ─────────────────────────────────────────────
 router.get('/:id', auth, async (req, res) => {
   try {
-    const order = await prisma.order.findUnique({ where: { id: Number(req.params.id) } });
+    const order = await prisma.order.findUnique({
+      where: { id: Number(req.params.id) },
+      include: {
+        user:     { select: { id: true, name: true, phone: true, email: true } },
+        discount: true,
+        items: {
+          include: {
+            price: {
+              include: {
+                canvasSize: true,
+                designType: true,
+                technique:  true,
+                subject:    true,
+              },
+            },
+          },
+        },
+      },
+    });
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
     res.json({ ...order, photoPaths: JSON.parse(order.photoPaths || '[]') });
   } catch { res.status(500).json({ error: 'Ошибка сервера' }); }
@@ -261,10 +280,14 @@ router.patch('/:id', auth, async (req, res) => {
   if (status && !allowed.includes(status)) return res.status(400).json({ error: 'Недопустимый статус' });
   try {
     const data = {};
-    if (status)                    data.status    = status;
-    if (comments !== undefined)    data.comments  = comments;
-    if (issueDate !== undefined)   data.issueDate = issueDate;
-    const order = await prisma.order.update({ where: { id: Number(req.params.id) }, data });
+    if (status    !== undefined) data.status    = status;
+    if (comments  !== undefined) data.comments  = comments;
+    if (issueDate !== undefined) data.issueDate = issueDate;
+    const order = await prisma.order.update({
+      where: { id: Number(req.params.id) },
+      data,
+      include: { discount: true, items: { include: { price: { include: { canvasSize: true, designType: true, technique: true, subject: true } } } } },
+    });
     res.json({ ...order, photoPaths: JSON.parse(order.photoPaths || '[]') });
   } catch { res.status(500).json({ error: 'Ошибка обновления' }); }
 });
@@ -283,15 +306,27 @@ router.delete('/:id', auth, async (req, res) => {
   } catch { res.status(500).json({ error: 'Ошибка удаления' }); }
 });
 
-// ─── GET /api/orders/calc — предварительный расчёт цены (публичный) ──────────
+// ─── GET /api/orders/calc — предварительный расчёт (публичный) ───────────────
+// Query: ?priceId=1&quantity=3&deadline=2026-04-10
 router.get('/calc', async (req, res) => {
-  const { size, format, design, material, quantity, deadline } = req.query;
+  const { priceId, quantity, deadline } = req.query;
   try {
-    const priceEntry = size ? await prisma.price.findUnique({ where: { size } }) : null;
-    const basePrice  = priceEntry ? priceEntry.price : 0;
-    const frameExtra = (format || '').includes('раме') ? 2500 : (format || '').includes('подрамнике') ? 800 : 0;
-    const result = calcPricing({ basePrice: basePrice + frameExtra, quantity, deadline, design });
-    res.json(result);
+    const priceRec = priceId ? await prisma.price.findUnique({ where: { id: Number(priceId) }, include: { technique: true } }) : null;
+    if (!priceRec) return res.status(404).json({ error: 'Позиция не найдена' });
+
+    const qty      = Number(quantity) || 1;
+    const subtotal = priceRec.price * qty;
+    const discount = await findDiscount({ quantity: qty, deadline, techniqueId: priceRec.techniqueId });
+    const factor   = discount ? (1 + discount.percent / 100) : 1;
+    const total    = Math.round(subtotal * factor);
+
+    res.json({
+      pricePerUnit: priceRec.price,
+      quantity:     qty,
+      subtotal,
+      discount:     discount ? { percent: discount.percent, description: discount.description } : null,
+      total,
+    });
   } catch { res.status(500).json({ error: 'Ошибка расчёта' }); }
 });
 
