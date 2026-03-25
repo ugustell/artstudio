@@ -3,52 +3,47 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 
-const ordersRouter     = require('./routes/orders');
-const refsRouter       = require('./routes/references');
-const adminRouter      = require('./routes/admin');
+const ordersRouter = require('./routes/orders');
+const refsRouter   = require('./routes/references');
+const adminRouter  = require('./routes/admin');
 const { router: usersRouter } = require('./routes/users');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
-/* ── CORS ─────────────────────────────────────────────────────────────────── */
+// ─── CORS ────────────────────────────────────────────────────────────────
 const allowedOrigins = [
   'https://artstudio-silk.vercel.app',
   'http://localhost:3000',
 ];
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin))
+    if (!origin) return callback(null, true); // для Postman или прямых запросов
+    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
       return callback(null, true);
+    }
     callback(new Error('Not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET','POST','PUT','PATCH','DELETE'],
+  allowedHeaders: ['Content-Type','Authorization'],
   credentials: true,
 }));
-app.options('*', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin',  req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(204);
-});
 
-/* ── Middleware ───────────────────────────────────────────────────────────── */
+// ─── Middleware ─────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Статика для загруженных файлов
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-/* ── Routes ──────────────────────────────────────────────────────────────── */
-app.use('/api/orders',  ordersRouter);
-app.use('/api/admin',   adminRouter);
-app.use('/api/users',   usersRouter);
+// ─── Routes ─────────────────────────────────────────────────────────────
+app.use('/api/orders', ordersRouter);
+app.use('/api/admin',  adminRouter);
+app.use('/api/users',  usersRouter);
+app.use('/api',        refsRouter);
 
-// Справочники: /api/sizes, /api/formats, /api/designs, /api/plots, /api/discounts, /api/calc
-app.use('/api',         refsRouter);
-
-// Обратная совместимость — /api/prices теперь это /api/sizes
+// Обратная совместимость: /api/prices теперь это /api/sizes
 app.get('/api/prices', async (req, res) => {
   const { PrismaClient } = require('@prisma/client');
   const prisma = new PrismaClient();
@@ -56,9 +51,11 @@ app.get('/api/prices', async (req, res) => {
   res.json(sizes.map(s => ({ id: s.id, size: s.size, price: s.price })));
 });
 
+// Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
+// ─── Start server ────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🎨 ArtStudio Backend запущен`);
+  console.log(`🎨 ArtStudio Backend запущен на порту ${PORT}`);
   console.log(`   http://localhost:${PORT}/api`);
 });
