@@ -7,124 +7,123 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Пользователи ────────────────────────────────────────────────────────────
-model User {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now()) @map("created_at")
-  name         String
-  email        String   @unique
-  password     String
-  role         String   @default("client")
-  address      String   @default("")
-  phone        String
-  orders       Order[]
+// ─── Справочники ──────────────────────────────────────────────────────────────
 
-  @@map("users")
+model Size {
+  id      Int     @id @default(autoincrement())
+  size    String  @unique          // "40×50 см"
+  price   Float                    // базовая цена за этот размер
+  orders  Order[]
+
+  @@map("sizes")
 }
 
-// ─── Скидки/надбавки ─────────────────────────────────────────────────────────
+model Format {
+  id         Int     @id @default(autoincrement())
+  format     String  @unique       // "Холст на подрамнике"
+  priceExtra Float   @default(0)  @map("price_extra")  // надбавка к базовой цене
+  orders     Order[]
+
+  @@map("formats")
+}
+
+model Design {
+  id         Int     @id @default(autoincrement())
+  design     String  @unique       // "Масло — портрет"
+  priceExtra Float   @default(0)  @map("price_extra")
+  orders     Order[]
+
+  @@map("designs")
+}
+
+model Plot {
+  id         Int     @id @default(autoincrement())
+  plot       String  @unique       // "Пейзаж"
+  priceExtra Float   @default(0)  @map("price_extra")
+  orders     Order[]
+
+  @@map("plots")
+}
+
 model Discount {
   id          Int     @id @default(autoincrement())
-  percent     Float
   description String
+  percent     Float   // отрицательный = скидка, положительный = надбавка
   orders      Order[]
 
   @@map("discounts")
 }
 
-// ─── Размеры холста ───────────────────────────────────────────────────────────
-model CanvasSize {
-  id     Int      @id @default(autoincrement())
-  size   String   @unique
-  prices Price[]
+// ─── Пользователи ─────────────────────────────────────────────────────────────
 
-  @@map("canvas_sizes")
-}
+model User {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now()) @map("created_at")
+  name         String
+  phone        String
+  email        String   @unique
+  address      String   @default("")
+  passwordHash String   @map("password_hash")
+  orders       Order[]
 
-// ─── Виды оформления ──────────────────────────────────────────────────────────
-model DesignType {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  prices      Price[]
-
-  @@map("design_types")
-}
-
-// ─── Техники исполнения ───────────────────────────────────────────────────────
-model Technique {
-  id        Int     @id @default(autoincrement())
-  name      String  @unique
-  prices    Price[]
-
-  @@map("techniques")
-}
-
-// ─── Сюжеты ───────────────────────────────────────────────────────────────────
-model Subject {
-  id     Int     @id @default(autoincrement())
-  name   String  @unique
-  prices Price[]
-
-  @@map("subjects")
-}
-
-// ─── Прайс-лист ───────────────────────────────────────────────────────────────
-model Price {
-  id           Int        @id @default(autoincrement())
-  canvasSizeId Int        @map("canvas_size_id")
-  designTypeId Int        @map("design_type_id")
-  techniqueId  Int        @map("technique_id")
-  subjectId    Int        @map("subject_id")
-  price        Float
-
-  canvasSize   CanvasSize @relation(fields: [canvasSizeId], references: [id])
-  designType   DesignType @relation(fields: [designTypeId], references: [id])
-  technique    Technique  @relation(fields: [techniqueId], references: [id])
-  subject      Subject    @relation(fields: [subjectId], references: [id])
-
-  orderItems   OrderItem[]
-
-  @@unique([canvasSizeId, designTypeId, techniqueId, subjectId])
-  @@map("prices")
+  @@map("users")
 }
 
 // ─── Заказы ───────────────────────────────────────────────────────────────────
-model Order {
-  id           Int         @id @default(autoincrement())
-  userId       Int?        @map("user_id")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  deadline     String      @default("")
-  issueDate    String      @default("") @map("issue_date")
-  discountId   Int?        @map("discount_id")
-  totalPrice   Float       @map("total_price")
-  prepayment   Float       @default(0)
-  status       String      @default("new")
-  photoPaths   String      @default("[]") @map("photo_paths")
-  comments     String      @default("")
 
-  user         User?       @relation(fields: [userId], references: [id])
-  discount     Discount?   @relation(fields: [discountId], references: [id])
-  items        OrderItem[]
+model Order {
+  id               Int        @id @default(autoincrement())
+  createdAt        DateTime   @default(now()) @map("created_at")
+  clientName       String     @map("client_name")
+  phone            String
+  email            String
+  status           String     @default("new")
+  deadline         String     @default("")
+  issueDate        String     @default("")   @map("issue_date")
+  discountPercent  Float      @default(0)    @map("discount_percent")
+  discountReason   String     @default("")   @map("discount_reason")
+  surchargePercent Float      @default(0)    @map("surcharge_percent")
+  surchargeReason  String     @default("")   @map("surcharge_reason")
+  totalPrice       Float      @map("total_price")
+  prepayment       Float      @default(0)
+  photoPaths       String     @default("[]") @map("photo_paths")
+  comments         String     @default("")
+
+  userId     Int?      @map("user_id")
+  sizeId     Int?      @map("size_id")
+  formatId   Int?      @map("format_id")
+  designId   Int?      @map("design_id")
+  plotId     Int?      @map("plot_id")
+  discountId Int?      @map("discount_id")
+
+  user       User?     @relation(fields: [userId],     references: [id])
+  size       Size?     @relation(fields: [sizeId],     references: [id])
+  format     Format?   @relation(fields: [formatId],   references: [id])
+  design     Design?   @relation(fields: [designId],   references: [id])
+  plot       Plot?     @relation(fields: [plotId],     references: [id])
+  discount   Discount? @relation(fields: [discountId], references: [id])
+
+  items      OrderItem[]
 
   @@map("orders")
 }
 
-// ─── Картины в заказе ─────────────────────────────────────────────────────────
-model OrderItem {
-  id          Int    @id @default(autoincrement())
-  orderId     Int    @map("order_id")
-  priceId     Int    @map("price_id")
-  quantity    Int    @default(1)
-  pricePerUnit Float @map("price_per_unit")
-  total       Float
+// ─── Картины в заказе (несколько позиций) ─────────────────────────────────────
 
-  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  price       Price  @relation(fields: [priceId], references: [id])
+model OrderItem {
+  id         Int    @id @default(autoincrement())
+  orderId    Int    @map("order_id")
+  quantity   Int    @default(1)
+  priceUnit  Float  @map("price_unit")  // цена за единицу на момент заказа
+  amount     Float                       // quantity × priceUnit
+
+  order      Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("order_items")
 }
 
 // ─── Администраторы ───────────────────────────────────────────────────────────
+
 model Admin {
   id           Int    @id @default(autoincrement())
   login        String @unique
