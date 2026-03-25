@@ -28,6 +28,31 @@ router.get('/discounts', async (req, res) => {
   res.json(data);
 });
 
+// GET /api/prices/options (Сборный роут для фронтенда)
+router.get('/options', async (req, res) => {
+  try {
+    const [sizes, formats, designs, plots, discounts] = await Promise.all([
+      prisma.size.findMany({ orderBy: { price: 'asc' } }),
+      prisma.format.findMany({ orderBy: { id: 'asc' } }),
+      prisma.design.findMany({ orderBy: { id: 'asc' } }),
+      prisma.plot.findMany({ orderBy: { id: 'asc' } }),
+      prisma.discount.findMany({ orderBy: { id: 'asc' } }),
+    ]);
+    
+    // Возвращаем объект, который ожидает фронтенд
+    res.json({
+      canvasSizes: sizes,
+      designTypes: formats,
+      techniques: designs,
+      subjects: plots,
+      discounts: discounts
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка загрузки справочников' });
+  }
+});
+
 // ── Калькулятор цены (публичный) ──────────────────────────────────────────────
 // GET /api/calc?sizeId=1&formatId=2&designId=3&plotId=4&quantity=1&deadline=2026-04-10
 router.get('/calc', async (req, res) => {
