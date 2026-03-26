@@ -39,7 +39,7 @@ async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadlin
     plotId   ? prisma.plot.findUnique({ where: { id: Number(plotId) } })     : null,
   ]);
 
-  console.log(process.env.DATABASE_URL)
+ 
   const priceUnit = (size?.price || 0) + (format?.priceExtra || 0) +
                     (design?.priceExtra || 0) + (plot?.priceExtra || 0);
 
@@ -94,6 +94,31 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
       } catch {}
     }
 console.log('IDs:', { sizeId: Number(sizeId), formatId: Number(formatId), designId: Number(designId), plotId: Number(plotId) });
+const sizeCheck = await prisma.size.findUnique({
+  where: { id: Number(sizeId) }
+});
+
+const formatCheck = await prisma.format.findUnique({
+  where: { id: Number(formatId) }
+});
+
+const designCheck = await prisma.design.findUnique({
+  where: { id: Number(designId) }
+});
+
+const plotCheck = await prisma.plot.findUnique({
+  where: { id: Number(plotId) }
+});
+
+console.log('CHECK:', {
+  sizeCheck,
+  formatCheck,
+  designCheck,
+  plotCheck
+});
+
+
+
     const order = await prisma.order.create({
       data: {
         clientName, phone, email,
