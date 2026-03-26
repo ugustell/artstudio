@@ -50,10 +50,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/orders',  ordersRouter);
 app.use('/api/admin',   adminRouter);
 app.use('/api/users',   usersRouter);
-app.use('/api/prices',  pricesRouter);
 
 // Справочники: /api/sizes, /api/formats, /api/designs, /api/plots, /api/discounts, /api/calc
 app.use('/api',         refsRouter);
+app.use('/api/prices',  pricesRouter);
 
 // Обратная совместимость — /api/prices теперь это /api/sizes
 app.get('/api/prices', async (req, res) => {

@@ -207,6 +207,7 @@ function PricesModal({ onClose, apiBase, token }) {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [newNumber, setNewNumber] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const TABS = [
     { id: 'canvasSizes', label: 'Размеры' },
@@ -216,19 +217,40 @@ function PricesModal({ onClose, apiBase, token }) {
     { id: 'discounts',   label: 'Скидки/надбавки' },
   ];
 
-  // Endpoint mapping
   const ENDPOINT = {
-  canvasSizes: 'sizes',     // POST /api/sizes
-  designTypes: 'formats',   // POST /api/formats
-  techniques:  'designs',   // POST /api/designs
-  subjects:    'plots',     // POST /api/plots
-  discounts:   'discounts', // POST /api/discounts
+    canvasSizes: 'sizes',
+    designTypes: 'formats',
+    techniques: 'designs',
+    subjects: 'plots',
+    discounts: 'discounts',
+  };
+
+  const normalizeItem = (tab, item) => {
+    if (tab === 'canvasSizes') return { id: item.id, size: item.size, price: item.price };
+    if (tab === 'designTypes') return { id: item.id, name: item.name ?? item.format, priceExtra: item.priceExtra ?? 0 };
+    if (tab === 'techniques') return { id: item.id, name: item.name ?? item.design, priceExtra: item.priceExtra ?? 0 };
+    if (tab === 'subjects') return { id: item.id, name: item.name ?? item.plot, priceExtra: item.priceExtra ?? 0 };
+    if (tab === 'discounts') return { id: item.id, percent: item.percent, description: item.description };
+    return item;
   };
 
   useEffect(() => {
     fetch(`${apiBase}/api/prices/options`)
-      .then(r => r.json())
-      .then(setOptions)
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || 'Не удалось загрузить справочники');
+        return data;
+      })
+      .then((data) => {
+        setOptions({
+          canvasSizes: (data.canvasSizes || []).map((item) => normalizeItem('canvasSizes', item)),
+          designTypes: (data.designTypes || []).map((item) => normalizeItem('designTypes', item)),
+          techniques: (data.techniques || []).map((item) => normalizeItem('techniques', item)),
+          subjects: (data.subjects || []).map((item) => normalizeItem('subjects', item)),
+          discounts: (data.discounts || []).map((item) => normalizeItem('discounts', item)),
+        });
+      })
+      .catch((err) => alert(err.message || 'Ошибка загрузки справочников'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -236,32 +258,47 @@ function PricesModal({ onClose, apiBase, token }) {
     if (!newName.trim()) return;
     const num = newNumber === '' ? 0 : Number(newNumber);
     if (activeTab === 'canvasSizes' && (newNumber === '' || Number.isNaN(num))) return;
-    if (activeTab !== 'discounts' && Number.isNaN(num)) return;
+    if (Number.isNaN(num)) return;
 
     const body =
-    activeTab === 'canvasSizes' ? { size: newName, price: num } :
-    activeTab === 'designTypes' ? { name: newName } :
-    activeTab === 'techniques'  ? { name: newName } :
-    activeTab === 'subjects'    ? { name: newName } :
-    { percent: num, description: newName }; // discounts
+    activeTab === 'canvasSizes' ? { size: newName.trim(), price: num } :
+    activeTab === 'designTypes' ? { format: newName.trim(), priceExtra: num } :
+    activeTab === 'techniques'  ? { design: newName.trim(), priceExtra: num } :
+    activeTab === 'subjects'    ? { plot: newName.trim(), priceExtra: num } :
+    { percent: num, description: newName.trim() };
 
-    const res = await fetch(`${apiBase}/api/prices/${ENDPOINT[activeTab]}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
-    });
-    const created = await res.json();
-    setOptions(o => ({ ...o, [activeTab]: [...o[activeTab], created] }));
-    setNewName('');
-    setNewNumber('');
+    setSaving(true);
+    try {
+      const res = await fetch(`${apiBase}/api/${ENDPOINT[activeTab]}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const created = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(created.error || 'Не удалось добавить запись');
+      setOptions(o => ({ ...o, [activeTab]: [...o[activeTab], normalizeItem(activeTab, created)] }));
+      setNewName('');
+      setNewNumber('');
+    } catch (err) {
+      alert(err.message || 'Ошибка сохранения');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteItem = async (id) => {
     if (!confirm('Удалить запись?')) return;
-    await fetch(`${apiBase}/api/prices/${ENDPOINT[activeTab]}/${id}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-    });
-    setOptions(o => ({ ...o, [activeTab]: o[activeTab].filter(x => x.id !== id) }));
+    try {
+      const res = await fetch(`${apiBase}/api/${ENDPOINT[activeTab]}/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Не удалось удалить запись');
+      setOptions(o => ({ ...o, [activeTab]: o[activeTab].filter(x => x.id !== id) }));
+    } catch (err) {
+      alert(err.message || 'Ошибка удаления');
+    }
   };
 
   const currentItems = options[activeTab] || [];
@@ -287,7 +324,7 @@ function PricesModal({ onClose, apiBase, token }) {
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-6">
             {TABS.map(t => (
-              <button key={t.id} onClick={() => { setActiveTab(t.id); setNewName(''); }}
+              <button key={t.id} onClick={() => { setActiveTab(t.id); setNewName(''); setNewNumber(''); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   activeTab === t.id ? 'bg-secondary text-surface' : 'bg-white/5 text-on-surface/60 hover:bg-white/10'
                 }`}>{t.label}</button>
