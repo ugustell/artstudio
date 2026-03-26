@@ -218,11 +218,11 @@ function PricesModal({ onClose, apiBase, token }) {
 
   // Endpoint mapping
   const ENDPOINT = {
-  canvasSizes: 'canvas-sizes',
-  designTypes: 'design-types',
-  techniques:  'techniques',
-  subjects:    'subjects',
-  discounts:   'discounts',
+  canvasSizes: 'sizes',     // POST /api/sizes
+  designTypes: 'formats',   // POST /api/formats
+  techniques:  'designs',   // POST /api/designs
+  subjects:    'plots',     // POST /api/plots
+  discounts:   'discounts', // POST /api/discounts
   };
 
   useEffect(() => {
@@ -239,7 +239,7 @@ function PricesModal({ onClose, apiBase, token }) {
     if (activeTab !== 'discounts' && Number.isNaN(num)) return;
 
     const body =
-      activeTab === 'canvasSizes' ? { size: newName } :
+    activeTab === 'canvasSizes' ? { size: newName, price: num } :
     activeTab === 'designTypes' ? { name: newName } :
     activeTab === 'techniques'  ? { name: newName } :
     activeTab === 'subjects'    ? { name: newName } :
