@@ -39,6 +39,7 @@ async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadlin
     plotId   ? prisma.plot.findUnique({ where: { id: Number(plotId) } })     : null,
   ]);
 
+  console.log(process.env.DATABASE_URL)
   const priceUnit = (size?.price || 0) + (format?.priceExtra || 0) +
                     (design?.priceExtra || 0) + (plot?.priceExtra || 0);
 
