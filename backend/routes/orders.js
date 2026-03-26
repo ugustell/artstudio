@@ -28,6 +28,30 @@ const upload = multer({
   },
 });
 
+// ─── Маппинг заказа в формат который ожидает фронт ───────────────────────────
+function mapOrder(o) {
+  return {
+    ...o,
+    // Телефон/email — берём из заказа напрямую (не только из user)
+    phone: o.phone || o.user?.phone || '—',
+    email: o.email || o.user?.email || '—',
+    photoPaths: JSON.parse(o.photoPaths || '[]'),
+    items: (o.items || []).map(item => ({
+      id:          item.id,
+      quantity:    item.quantity,
+      pricePerUnit: item.priceUnit,
+      total:       item.amount,
+      // Вложенный объект price — именно такой формат ожидает фронт
+      price: {
+        canvasSize:  o.size   ? { id: o.size.id,   size: o.size.size,     price: o.size.price }       : null,
+        designType:  o.format ? { id: o.format.id, name: o.format.format, priceExtra: o.format.priceExtra } : null,
+        technique:   o.design ? { id: o.design.id, name: o.design.design, priceExtra: o.design.priceExtra } : null,
+        subject:     o.plot   ? { id: o.plot.id,   name: o.plot.plot,     priceExtra: o.plot.priceExtra }   : null,
+      },
+    })),
+  };
+}
+
 // ─── Расчёт цены ─────────────────────────────────────────────────────────────
 async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadline }) {
   const qty = Number(quantity) || 1;
@@ -39,11 +63,9 @@ async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadlin
     plotId   ? prisma.plot.findUnique({ where: { id: Number(plotId) } })     : null,
   ]);
 
- 
   const priceUnit = (size?.price || 0) + (format?.priceExtra || 0) +
                     (design?.priceExtra || 0) + (plot?.priceExtra || 0);
 
-  // Надбавка за срочность
   let surchargePercent = 0, surchargeReason = '';
   if (deadline) {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -54,7 +76,6 @@ async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadlin
     else if (days >= 30){ surchargePercent = -5; surchargeReason = 'Длительный срок (30+ дней)'; }
   }
 
-  // Скидка за количество
   let discountPercent = 0, discountReason = '';
   if      (qty >= 10) { discountPercent = 20; discountReason = 'Скидка за объём — 10+ картин'; }
   else if (qty >= 5)  { discountPercent = 15; discountReason = 'Скидка за объём — 5–9 картин'; }
@@ -64,11 +85,12 @@ async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadlin
   const surcharge = Math.max(surchargePercent, 0);
   const deadline5 = surchargePercent < 0 ? Math.abs(surchargePercent) : 0;
   const discount  = discountPercent + deadline5;
-
   const totalPrice = Math.round(priceUnit * qty * (1 + surcharge / 100) * (1 - discount / 100));
 
   return { priceUnit, qty, surchargePercent, surchargeReason, discountPercent, discountReason, totalPrice };
 }
+
+const include = { size: true, format: true, design: true, plot: true, items: true, user: true };
 
 // ─── POST /api/orders — создать заказ ────────────────────────────────────────
 router.post('/', upload.array('photos', 5), async (req, res) => {
@@ -84,6 +106,7 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
     const photoPaths = (req.files || []).map(f => `/uploads/${f.filename}`);
     const prepayVal  = Math.max(0, Number(prepayment) || 0);
 
+    // Достаём userId из токена если пользователь авторизован
     let userId = null;
     const authHeader = req.headers['authorization'];
     if (authHeader) {
@@ -93,37 +116,12 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
         userId = decoded.id;
       } catch {}
     }
-console.log('IDs:', { sizeId: Number(sizeId), formatId: Number(formatId), designId: Number(designId), plotId: Number(plotId) });
-const sizeCheck = await prisma.size.findUnique({
-  where: { id: Number(sizeId) }
-});
-
-const formatCheck = await prisma.format.findUnique({
-  where: { id: Number(formatId) }
-});
-
-const designCheck = await prisma.design.findUnique({
-  where: { id: Number(designId) }
-});
-
-const plotCheck = await prisma.plot.findUnique({
-  where: { id: Number(plotId) }
-});
-
-console.log('CHECK:', {
-  sizeCheck,
-  formatCheck,
-  designCheck,
-  plotCheck
-});
-
-
 
     const order = await prisma.order.create({
       data: {
         clientName, phone, email,
-        deadline:        deadline   || '',
-        comments:        comments   || '',
+        deadline:         deadline   || '',
+        comments:         comments   || '',
         surchargePercent: pricing.surchargePercent,
         surchargeReason:  pricing.surchargeReason,
         discountPercent:  pricing.discountPercent,
@@ -138,6 +136,7 @@ console.log('CHECK:', {
         designId: Number(designId),
         plotId:   Number(plotId),
       },
+      include,
     });
 
     await prisma.orderItem.create({
@@ -148,6 +147,9 @@ console.log('CHECK:', {
         amount:    pricing.priceUnit * pricing.qty,
       },
     });
+
+    // Перечитываем с items
+    const fullOrder = await prisma.order.findUnique({ where: { id: order.id }, include });
 
     res.status(201).json({
       success:          true,
@@ -185,16 +187,16 @@ router.get('/', auth, async (req, res) => {
     if (dateTo)   { const d = new Date(dateTo); d.setHours(23,59,59,999); where.createdAt.lte = d; }
   }
   try {
-    const include = { size: true, format: true, design: true, plot: true, items: true };
     const [orders, total] = await Promise.all([
       prisma.order.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take: Number(limit), include }),
       prisma.order.count({ where }),
     ]);
     res.json({
-      orders: orders.map(o => ({ ...o, photoPaths: JSON.parse(o.photoPaths || '[]') })),
+      orders: orders.map(mapOrder),
       total, page: Number(page), pages: Math.ceil(total / Number(limit)),
     });
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: 'Ошибка получения заказов' });
   }
 });
@@ -204,10 +206,10 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const order = await prisma.order.findUnique({
       where: { id: Number(req.params.id) },
-      include: { size: true, format: true, design: true, plot: true, discount: true, items: true },
+      include,
     });
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
-    res.json({ ...order, photoPaths: JSON.parse(order.photoPaths || '[]') });
+    res.json(mapOrder(order));
   } catch { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
@@ -222,8 +224,8 @@ router.patch('/:id', auth, async (req, res) => {
     if (comments !== undefined)  data.comments  = comments;
     if (issueDate !== undefined) data.issueDate = issueDate;
     if (status === 'delivered' && !issueDate) data.issueDate = new Date().toISOString().split('T')[0];
-    const order = await prisma.order.update({ where: { id: Number(req.params.id) }, data });
-    res.json({ ...order, photoPaths: JSON.parse(order.photoPaths || '[]') });
+    const order = await prisma.order.update({ where: { id: Number(req.params.id) }, data, include });
+    res.json(mapOrder(order));
   } catch { res.status(500).json({ error: 'Ошибка обновления' }); }
 });
 
@@ -242,3 +244,5 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.mapOrder = mapOrder;
+module.exports.orderInclude = include;

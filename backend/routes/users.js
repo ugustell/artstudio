@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const { mapOrder, orderInclude } = require('./orders');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -80,10 +81,11 @@ router.get('/my-orders', userAuth, async (req, res) => {
     const orders = await prisma.order.findMany({
       where:   { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
-      include: { size: true, format: true, design: true, plot: true, items: true },
+      include: orderInclude,
     });
-    res.json(orders.map(o => ({ ...o, photoPaths: JSON.parse(o.photoPaths || '[]') })));
+    res.json(orders.map(mapOrder));
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
