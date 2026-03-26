@@ -7,29 +7,33 @@ import Footer from '../components/Footer';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function PricesPage() {
-  const [options, setOptions]   = useState({ canvasSizes: [], designTypes: [], techniques: [], subjects: [], discounts: [] });
-  const [loading, setLoading]   = useState(true);
+  const [sizes,   setSizes]   = useState([]);
+  const [formats, setFormats] = useState([]);
+  const [designs, setDesigns] = useState([]);
+  const [plots,   setPlots]   = useState([]);
+  const [discounts, setDiscounts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedSizeId, setSelectedSizeId] = useState(null);
 
   useEffect(() => {
-    fetch(`${API}/api/prices/options`)
-      .then(r => r.json())
-      .then(data => setOptions(data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch(`${API}/api/sizes`).then(r => r.json()),
+      fetch(`${API}/api/formats`).then(r => r.json()),
+      fetch(`${API}/api/designs`).then(r => r.json()),
+      fetch(`${API}/api/plots`).then(r => r.json()),
+      fetch(`${API}/api/discounts`).then(r => r.json()),
+    ]).then(([s, f, d, p, disc]) => {
+      setSizes(s); setFormats(f); setDesigns(d); setPlots(p); setDiscounts(disc);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const selectedSize = options.canvasSizes.find(s => s.id === selectedSizeId);
-
-  // Разделяем скидки и надбавки
-  const discountRows = options.discounts.filter(d => d.percent < 0);
-  const surchargeRows = options.discounts.filter(d => d.percent > 0);
+  const selectedSize = sizes.find(s => s.id === selectedSizeId);
 
   return (
     <>
       <Head>
         <title>Прайс-лист — ArtStudio</title>
-        <meta name="description" content="Цены на картины, написанные вручную художником. Масло, акварель, акрил. Различные размеры и виды оформления." />
+        <meta name="description" content="Цены на картины, написанные вручную художником." />
       </Head>
       <Navbar />
 
@@ -40,36 +44,37 @@ export default function PricesPage() {
             <div className="section-label">Стоимость</div>
             <h1 className="font-serif text-5xl md:text-6xl font-bold tracking-tight text-on-surface">Прайс-лист</h1>
             <p className="text-on-surface/50 mt-4 max-w-xl">
-              Итоговая стоимость зависит от размера холста, техники живописи, вида оформления, сюжета и сроков.
-              Точный расчёт — в форме заказа.
+              Базовая цена — по размеру холста. Итоговая стоимость рассчитывается с учётом
+              вида оформления, техники, сюжета и условий заказа.
             </p>
           </div>
 
+          {loading ? (
+            <div className="glass rounded p-12 text-center text-on-surface/40">Загружаем прайс...</div>
+          ) : (
           <div className="grid lg:grid-cols-3 gap-10">
+            <div className="lg:col-span-2 space-y-12">
 
-            <div className="lg:col-span-2">
-
-              {/* Размеры */}
-              <h2 className="font-serif text-2xl font-bold text-on-surface mb-6">Размеры холста</h2>
-              {loading ? (
-                <div className="glass rounded p-12 text-center text-on-surface/40">Загружаем прайс...</div>
-              ) : (
+              {/* Размеры — базовые цены */}
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-on-surface mb-6">Базовые цены по размерам холста</h2>
                 <div className="glass rounded overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-white/10">
-                        <th className="text-left px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Размер холста</th>
+                        <th className="text-left px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Размер</th>
+                        <th className="text-right px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Цена от</th>
                         <th className="px-4 py-4 w-24" />
                       </tr>
                     </thead>
                     <tbody>
-                      {options.canvasSizes.map(s => (
-                        <tr key={s.id}
-                          onClick={() => setSelectedSizeId(s.id)}
+                      {sizes.map(s => (
+                        <tr key={s.id} onClick={() => setSelectedSizeId(s.id)}
                           className={`border-b border-white/5 cursor-pointer transition-colors duration-200 ${
                             selectedSizeId === s.id ? 'bg-primary/10 border-primary/20' : 'hover:bg-white/5'
                           }`}>
                           <td className="px-6 py-4 font-bold text-on-surface">{s.size}</td>
+                          <td className="px-6 py-4 text-right text-secondary font-bold">{s.price.toLocaleString('ru-RU')} ₽</td>
                           <td className="px-4 py-4 text-center">
                             {selectedSizeId === s.id && <span className="text-xs text-primary">✓ выбрано</span>}
                           </td>
@@ -78,55 +83,86 @@ export default function PricesPage() {
                     </tbody>
                   </table>
                 </div>
-              )}
+              </div>
 
-              {/* Техники из БД */}
-              <h2 className="font-serif text-2xl font-bold text-on-surface mt-12 mb-6">Техники живописи</h2>
-              {loading ? (
-                <div className="text-on-surface/30 text-sm py-4">Загрузка...</div>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {options.techniques.map(t => (
-                    <div key={t.id} className="glass rounded p-5 border border-transparent hover:border-white/20 transition-all duration-200">
-                      <div className="font-bold text-on-surface text-sm">{t.name}</div>
-                    </div>
-                  ))}
+              {/* Виды оформления */}
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-on-surface mb-6">Виды оформления</h2>
+                <div className="glass rounded overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Вид оформления</th>
+                        <th className="text-right px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Надбавка</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formats.map(f => (
+                        <tr key={f.id} className="border-b border-white/5">
+                          <td className="px-6 py-3 text-on-surface">{f.format}</td>
+                          <td className={`px-6 py-3 text-right font-bold ${f.priceExtra > 0 ? 'text-secondary' : 'text-on-surface/30'}`}>
+                            {f.priceExtra > 0 ? `+${f.priceExtra.toLocaleString('ru-RU')} ₽` : 'включено'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
 
-              {/* Виды оформления из БД */}
-              <h2 className="font-serif text-2xl font-bold text-on-surface mt-12 mb-6">Виды оформления</h2>
-              {loading ? (
-                <div className="text-on-surface/30 text-sm py-4">Загрузка...</div>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {options.designTypes.map(d => (
-                    <div key={d.id} className="glass rounded p-5 border border-transparent hover:border-white/20 transition-all duration-200">
-                      <div className="font-bold text-on-surface text-sm">{d.name}</div>
-                    </div>
-                  ))}
+              {/* Техники */}
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-on-surface mb-6">Техники исполнения</h2>
+                <div className="glass rounded overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Техника</th>
+                        <th className="text-right px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Надбавка за сложность</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {designs.map(d => (
+                        <tr key={d.id} className="border-b border-white/5">
+                          <td className="px-6 py-3 text-on-surface">{d.design}</td>
+                          <td className={`px-6 py-3 text-right font-bold ${d.priceExtra > 0 ? 'text-secondary' : 'text-on-surface/30'}`}>
+                            {d.priceExtra > 0 ? `+${d.priceExtra.toLocaleString('ru-RU')} ₽` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
 
-              {/* Сюжеты из БД */}
-              <h2 className="font-serif text-2xl font-bold text-on-surface mt-12 mb-6">Сюжеты</h2>
-              {loading ? (
-                <div className="text-on-surface/30 text-sm py-4">Загрузка...</div>
-              ) : (
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {options.subjects.map(s => (
-                    <div key={s.id} className="glass rounded p-4 border border-transparent hover:border-white/20 transition-all duration-200">
-                      <div className="font-medium text-on-surface text-sm">{s.name}</div>
-                    </div>
-                  ))}
+              {/* Сюжеты */}
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-on-surface mb-6">Сюжеты</h2>
+                <div className="glass rounded overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Сюжет</th>
+                        <th className="text-right px-6 py-4 text-on-surface/40 font-semibold uppercase tracking-widest text-xs">Надбавка за сложность</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plots.map(p => (
+                        <tr key={p.id} className="border-b border-white/5">
+                          <td className="px-6 py-3 text-on-surface">{p.plot}</td>
+                          <td className={`px-6 py-3 text-right font-bold ${p.priceExtra > 0 ? 'text-secondary' : 'text-on-surface/30'}`}>
+                            {p.priceExtra > 0 ? `+${p.priceExtra.toLocaleString('ru-RU')} ₽` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
 
-              {/* Скидки и надбавки из БД */}
-              <h2 className="font-serif text-2xl font-bold text-on-surface mt-12 mb-6">Скидки и надбавки</h2>
-              {loading ? (
-                <div className="text-on-surface/30 text-sm py-4">Загрузка...</div>
-              ) : (
+              {/* Скидки и надбавки */}
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-on-surface mb-6">Скидки и надбавки</h2>
                 <div className="glass rounded overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
@@ -136,57 +172,51 @@ export default function PricesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {discountRows.map(d => (
+                      {discounts.filter(d => d.percent !== 0).map(d => (
                         <tr key={d.id} className="border-b border-white/5">
                           <td className="px-6 py-3 text-on-surface/70">{d.description}</td>
-                          <td className="px-6 py-3 text-right font-bold text-green-400">{d.percent}%</td>
-                        </tr>
-                      ))}
-                      {surchargeRows.map(d => (
-                        <tr key={d.id} className="border-b border-white/5">
-                          <td className="px-6 py-3 text-on-surface/70">{d.description}</td>
-                          <td className="px-6 py-3 text-right font-bold text-secondary">+{d.percent}%</td>
+                          <td className={`px-6 py-3 text-right font-bold ${d.percent > 0 ? 'text-secondary' : 'text-green-400'}`}>
+                            {d.percent > 0 ? `+${d.percent}%` : `${d.percent}%`}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* Боковая панель */}
+            {/* Боковой блок */}
             <div>
               <div className="glass rounded p-8 sticky top-28">
                 <h2 className="font-serif text-xl font-bold text-on-surface mb-4">Выбранный размер</h2>
                 {selectedSize ? (
                   <div className="mb-6">
-                    <div className="text-on-surface/50 text-sm mb-1">Холст</div>
                     <div className="font-bold text-on-surface text-2xl font-serif">{selectedSize.size}</div>
-                    <div className="text-on-surface/40 text-xs mt-3">
-                      Точная цена зависит от техники, оформления и сюжета — используйте калькулятор в форме заказа
+                    <div className="text-primary font-black text-4xl font-serif mt-3">
+                      {selectedSize.price.toLocaleString('ru-RU')} ₽
                     </div>
+                    <div className="text-on-surface/30 text-xs mt-1">базовая цена</div>
                   </div>
                 ) : (
-                  <div className="text-on-surface/30 text-sm mb-6">
-                    Нажмите на строку таблицы, чтобы выбрать размер
-                  </div>
+                  <div className="text-on-surface/30 text-sm mb-6">Нажмите на строку таблицы, чтобы выбрать размер</div>
                 )}
-
-                <Link href="/order" className="btn-primary w-full justify-center block text-center mb-6">
+                <Link
+                  href={selectedSizeId ? `/order?sizeId=${selectedSizeId}` : '/order'}
+                  className="btn-primary w-full justify-center block text-center mb-6">
                   Заказать картину →
                 </Link>
-
-                <div className="space-y-4 text-xs text-on-surface/30">
-                  <p>Цена формируется из комбинации: размер × техника × оформление × сюжет.</p>
-                  <p>Нестандартные размеры — по запросу.</p>
+                <div className="space-y-3 text-xs text-on-surface/30">
+                  <p>Итоговая цена = базовая + надбавки за оформление, технику и сюжет ± скидки.</p>
+                  <p>Точный расчёт — в форме заказа.</p>
                   <p>Аванс 30–50% при оформлении. Остаток — при получении.</p>
                 </div>
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
-
       <Footer />
     </>
   );

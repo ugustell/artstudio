@@ -4,37 +4,9 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 
-// ─── Логика расчёта срочности (дублирует backend) ────────────────────────────
-function calcDeadlineSurcharge(deadline) {
-  if (!deadline) return { percent: 0, reason: '', days: null };
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days  = Math.ceil((new Date(deadline) - today) / 86400000);
-  if (days < 0)  return { percent: 0,   reason: 'Выберите дату в будущем', days };
-  if (days < 3)  return { percent: 60,  reason: `Очень срочно — осталось ${days} дн.`, days };
-  if (days < 7)  return { percent: 30,  reason: `Срочный заказ — ${days} дн.`, days };
-  if (days < 14) return { percent: 15,  reason: `Ускоренный срок — ${days} дн.`, days };
-  if (days >= 30) return { percent: -5, reason: `Скидка за длительный срок — ${days} дн.`, days };
-  return { percent: 0, reason: `Стандартный срок — ${days} дн.`, days };
-}
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-function calcQuantityDiscount(qty) {
-  if (qty >= 10) return { percent: 20, reason: 'Скидка за объём — 10+ картин' };
-  if (qty >= 5)  return { percent: 15, reason: 'Скидка за объём — 5–9 картин' };
-  if (qty >= 3)  return { percent: 10, reason: 'Скидка за объём — 3–4 картины' };
-  if (qty >= 2)  return { percent: 5,  reason: 'Скидка за объём — 2 картины' };
-  return { percent: 0, reason: '' };
-}
-
-function calcComplexityFromTechnique(techniqueName) {
-  const t = (techniqueName || '').toLowerCase();
-  if (t.includes('ван гога') || t.includes('моне') || t.includes('климта'))
-    return { percent: 30, reason: 'Авторский стиль (копия мастера)' };
-  if (t.includes('портрет') || t.includes('реализм'))
-    return { percent: 20, reason: 'Сложный сюжет (портрет / реализм)' };
-  return { percent: 0, reason: '' };
-}
-
-// ─── Вспомогательные компоненты ──────────────────────────────────────────────
+// ─── Вспомогательные компоненты ───────────────────────────────────────────────
 function PriceRow({ label, value, color = 'text-on-surface/60', bold = false }) {
   return (
     <div className={`flex justify-between items-center py-1 ${bold ? 'border-t border-white/10 pt-3 mt-1' : ''}`}>
@@ -58,46 +30,56 @@ function Badge({ color, text }) {
   );
 }
 
-// ─── Главная страница формы ───────────────────────────────────────────────────
+// ─── Главная страница ─────────────────────────────────────────────────────────
 export default function OrderPage() {
   const { user, token } = useAuth();
-  const API = process.env.NEXT_PUBLIC_API_URL;
 
   // Справочники из БД
-  const [options, setOptions] = useState({
-    canvasSizes: [], designTypes: [], techniques: [], subjects: [],
-  });
-  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [sizes,   setSizes]   = useState([]);
+  const [formats, setFormats] = useState([]);
+  const [designs, setDesigns] = useState([]);
+  const [plots,   setPlots]   = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Форма
+  // Форма — храним ID, а не строки
   const [form, setForm] = useState({
     clientName: '', phone: '', email: '',
-    canvasSizeId: '', designTypeId: '', techniqueId: '', subjectId: '',
+    sizeId: '', formatId: '', designId: '', plotId: '',
     deadline: '', quantity: 1, comments: '', prepayment: 0,
   });
 
-  const [files, setFiles]     = useState([]);
-  const [errors, setErrors]   = useState({});
-  const [loading, setLoading] = useState(false);
+  // Расчёт цены с сервера
+  const [calc, setCalc]     = useState(null);
+  const [calcLoading, setCalcLoading] = useState(false);
+
+  const [files,   setFiles]   = useState([]);
+  const [errors,  setErrors]  = useState({});
+  const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(null);
 
-  // Цена
-  const [unitPrice,    setUnitPrice]    = useState(0);
-  const [deadlineInfo, setDeadlineInfo] = useState({ percent: 0, reason: '', days: null });
-  const [quantityInfo, setQuantityInfo] = useState({ percent: 0, reason: '' });
-  const [complexInfo,  setComplexInfo]  = useState({ percent: 0, reason: '' });
-  const [totalPrice,   setTotalPrice]   = useState(0);
-
-  // Загружаем все справочники одним запросом
+  // ── Загрузка справочников ──────────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${API}/api/prices/options`)
-      .then(r => r.json())
-      .then(data => setOptions(data))
-      .catch(() => {})
-      .finally(() => setLoadingOptions(false));
+    Promise.all([
+      fetch(`${API}/api/sizes`).then(r => r.json()),
+      fetch(`${API}/api/formats`).then(r => r.json()),
+      fetch(`${API}/api/designs`).then(r => r.json()),
+      fetch(`${API}/api/plots`).then(r => r.json()),
+    ]).then(([s, f, d, p]) => {
+      setSizes(s);
+      setFormats(f);
+      setDesigns(d);
+      setPlots(p);
+      // Дефолтные значения — первый элемент каждого справочника
+      setForm(prev => ({
+        ...prev,
+        formatId: f[0]?.id || '',
+        designId: d[0]?.id || '',
+        plotId:   p[0]?.id || '',
+      }));
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  // Автозаполнение данных из профиля
+  // ── Автозаполнение из профиля ─────────────────────────────────────────────
   useEffect(() => {
     if (user) {
       setForm(prev => ({
@@ -109,64 +91,43 @@ export default function OrderPage() {
     }
   }, [user]);
 
-  // При выборе комбинации — считаем базовую цену как сумму надбавок из справочников
+  // ── Пересчёт цены при изменении параметров ────────────────────────────────
   useEffect(() => {
-    const { canvasSizeId, designTypeId, techniqueId, subjectId } = form;
-    if (!canvasSizeId || !designTypeId || !techniqueId || !subjectId) {
-      setUnitPrice(0); setTotalPrice(0); return;
+    if (!form.sizeId || !form.formatId || !form.designId || !form.plotId) {
+      setCalc(null);
+      return;
     }
-    // Используем /api/calc — бэкенд сам считает priceUnit по sizeId/formatId/designId/plotId
+    setCalcLoading(true);
     const params = new URLSearchParams({
-      sizeId:   canvasSizeId,   // canvasSizes → sizes
-      formatId: designTypeId,   // designTypes → formats
-      designId: techniqueId,    // techniques  → designs
-      plotId:   subjectId,      // subjects    → plots
+      sizeId:   form.sizeId,
+      formatId: form.formatId,
+      designId: form.designId,
+      plotId:   form.plotId,
+      quantity: form.quantity,
+      ...(form.deadline ? { deadline: form.deadline } : {}),
     });
     fetch(`${API}/api/calc?${params}`)
       .then(r => r.json())
-      .then(data => setUnitPrice(data.priceUnit || 0))
-      .catch(() => setUnitPrice(0));
-  }, [form.canvasSizeId, form.designTypeId, form.techniqueId, form.subjectId]);
-
-  // Пересчёт итоговой цены
-  useEffect(() => {
-    const qty   = Number(form.quantity) || 1;
-    const dl    = calcDeadlineSurcharge(form.deadline);
-    const qd    = calcQuantityDiscount(qty);
-    const tech  = options.techniques.find(t => t.id === Number(form.techniqueId));
-    const cmp   = calcComplexityFromTechnique(tech?.name || '');
-
-    setDeadlineInfo(dl);
-    setQuantityInfo(qd);
-    setComplexInfo(cmp);
-
-    if (!unitPrice) { setTotalPrice(0); return; }
-
-    const surchargePct = Math.max(
-      dl.percent > 0  ? dl.percent  : 0,
-      cmp.percent > 0 ? cmp.percent : 0,
-    );
-    const deadlineDisc = dl.percent < 0 ? Math.abs(dl.percent) : 0;
-    const discountPct  = qd.percent + deadlineDisc;
-
-    setTotalPrice(Math.round(unitPrice * qty * (1 + surchargePct / 100) * (1 - discountPct / 100)));
-  }, [unitPrice, form.deadline, form.quantity, form.techniqueId, options.techniques]);
+      .then(setCalc)
+      .catch(() => setCalc(null))
+      .finally(() => setCalcLoading(false));
+  }, [form.sizeId, form.formatId, form.designId, form.plotId, form.quantity, form.deadline]);
 
   const set = (k, v) => {
-    setForm(p => ({ ...p, [k]: v }));
-    setErrors(p => ({ ...p, [k]: '' }));
+    setForm(prev => ({ ...prev, [k]: v }));
+    setErrors(prev => ({ ...prev, [k]: '' }));
   };
 
   const validate = () => {
     const e = {};
-    if (!form.clientName.trim()) e.clientName  = 'Введите имя';
-    if (!form.phone.trim())      e.phone       = 'Введите телефон';
+    if (!form.clientName.trim()) e.clientName = 'Введите имя';
+    if (!form.phone.trim())      e.phone      = 'Введите телефон';
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) e.email = 'Введите корректный email';
-    if (!form.canvasSizeId)  e.canvasSizeId  = 'Выберите размер';
-    if (!form.designTypeId)  e.designTypeId  = 'Выберите оформление';
-    if (!form.techniqueId)   e.techniqueId   = 'Выберите технику';
-    if (!form.subjectId)     e.subjectId     = 'Выберите сюжет';
-    if (!form.deadline)      e.deadline      = 'Укажите желаемую дату готовности';
+    if (!form.sizeId)   e.sizeId   = 'Выберите размер';
+    if (!form.formatId) e.formatId = 'Выберите оформление';
+    if (!form.designId) e.designId = 'Выберите технику';
+    if (!form.plotId)   e.plotId   = 'Выберите сюжет';
+    if (!form.deadline) e.deadline = 'Укажите желаемую дату готовности';
     if (form.deadline) {
       const today = new Date(); today.setHours(0,0,0,0);
       if (new Date(form.deadline) < today) e.deadline = 'Дата не может быть в прошлом';
@@ -178,21 +139,21 @@ export default function OrderPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    setLoading(true);
+    setSending(true);
     try {
       const data = new FormData();
+      // Отправляем ID'шники справочников
       data.append('clientName', form.clientName);
       data.append('phone',      form.phone);
       data.append('email',      form.email);
-      data.append('deadline',   form.deadline);
-      data.append('comments',   form.comments);
-      data.append('prepayment', form.prepayment);
+      data.append('sizeId',     form.sizeId);
+      data.append('formatId',   form.formatId);
+      data.append('designId',   form.designId);
+      data.append('plotId',     form.plotId);
       data.append('quantity',   form.quantity);
-      // Маппинг: canvasSizes→sizeId, designTypes→formatId, techniques→designId, subjects→plotId
-      data.append('sizeId',   form.canvasSizeId);
-      data.append('formatId', form.designTypeId);
-      data.append('designId', form.techniqueId);
-      data.append('plotId',   form.subjectId);
+      data.append('deadline',   form.deadline);
+      data.append('prepayment', form.prepayment);
+      data.append('comments',   form.comments);
       files.forEach(f => data.append('photos', f));
 
       const headers = {};
@@ -204,16 +165,23 @@ export default function OrderPage() {
     } catch (err) {
       setErrors({ _global: err.message });
     } finally {
-      setLoading(false);
+      setSending(false);
     }
   };
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().split('T')[0];
+
   const qty = Number(form.quantity) || 1;
 
-  // ─── Экран успеха ───────────────────────────────────────────────────────────
+  // Текстовые названия выбранных элементов для отображения
+  const selectedSize   = sizes.find(s => s.id === Number(form.sizeId));
+  const selectedFormat = formats.find(f => f.id === Number(form.formatId));
+  const selectedDesign = designs.find(d => d.id === Number(form.designId));
+  const selectedPlot   = plots.find(p => p.id === Number(form.plotId));
+
+  // ── Экран успеха ──────────────────────────────────────────────────────────
   if (success) return (
     <>
       <Head><title>Заказ принят — ArtStudio</title></Head>
@@ -250,7 +218,7 @@ export default function OrderPage() {
           <div className="flex gap-4 justify-center flex-wrap">
             <button onClick={() => {
               setSuccess(null);
-              setForm({ clientName:'', phone:'', email:'', canvasSizeId:'', designTypeId:'', techniqueId:'', subjectId:'', deadline:'', quantity:1, comments:'', prepayment:0 });
+              setForm({ clientName:'', phone:'', email:'', sizeId:'', formatId: formats[0]?.id||'', designId: designs[0]?.id||'', plotId: plots[0]?.id||'', deadline:'', quantity:1, comments:'', prepayment:0 });
               setFiles([]);
             }} className="btn-outline">Новый заказ</button>
             <a href="/" className="btn-primary">На главную</a>
@@ -278,9 +246,12 @@ export default function OrderPage() {
             <p className="text-on-surface/50 mt-4 text-lg">Опишите задачу — художник свяжется с вами в течение дня</p>
           </div>
 
+          {loading ? (
+            <div className="glass p-16 rounded-xl text-center text-on-surface/40">Загружаем данные...</div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-8 animate-fade-up" style={{ animationDelay: '100ms' }}>
 
-            {/* ── 1. Личные данные ───────────────────────────────────── */}
+            {/* ── 1. Личные данные ──────────────────────────────────── */}
             <div className="glass p-8 rounded-xl">
               <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
                 <span className="w-7 h-7 rounded-full border border-primary/40 flex items-center justify-center text-xs text-primary shrink-0">1</span>
@@ -308,94 +279,78 @@ export default function OrderPage() {
               </div>
             </div>
 
-            {/* ── 2. Параметры картины ───────────────────────────────── */}
+            {/* ── 2. Параметры картины ──────────────────────────────── */}
             <div className="glass p-8 rounded-xl">
               <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
                 <span className="w-7 h-7 rounded-full border border-secondary/40 flex items-center justify-center text-xs text-secondary shrink-0">2</span>
                 Параметры картины
               </h2>
+              <div className="grid md:grid-cols-2 gap-6">
 
-              {loadingOptions ? (
-                <div className="text-on-surface/30 text-sm py-6 text-center">Загружаем параметры...</div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-6">
-
-                  {/* Размер холста */}
-                  <div>
-                    <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Размер холста *</label>
-                    <select value={form.canvasSizeId} onChange={e => set('canvasSizeId', e.target.value)}
-                      className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
-                        ${errors.canvasSizeId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
-                      <option value="" className="bg-surface-container">— выберите размер —</option>
-                      {options.canvasSizes.map(s => (
-                        <option key={s.id} value={s.id} className="bg-surface-container">{s.size}</option>
-                      ))}
-                    </select>
-                    {errors.canvasSizeId && <p className="text-red-400 text-xs mt-1">{errors.canvasSizeId}</p>}
-                  </div>
-
-                  {/* Вид оформления */}
-                  <div>
-                    <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Оформление *</label>
-                    <select value={form.designTypeId} onChange={e => set('designTypeId', e.target.value)}
-                      className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
-                        ${errors.designTypeId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
-                      <option value="" className="bg-surface-container">— выберите оформление —</option>
-                      {options.designTypes.map(d => (
-                        <option key={d.id} value={d.id} className="bg-surface-container">{d.name}</option>
-                      ))}
-                    </select>
-                    {errors.designTypeId && <p className="text-red-400 text-xs mt-1">{errors.designTypeId}</p>}
-                  </div>
-
-                  {/* Техника исполнения */}
-                  <div>
-                    <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Техника живописи *</label>
-                    <select value={form.techniqueId} onChange={e => set('techniqueId', e.target.value)}
-                      className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
-                        ${errors.techniqueId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
-                      <option value="" className="bg-surface-container">— выберите технику —</option>
-                      {options.techniques.map(t => (
-                        <option key={t.id} value={t.id} className="bg-surface-container">{t.name}</option>
-                      ))}
-                    </select>
-                    {errors.techniqueId && <p className="text-red-400 text-xs mt-1">{errors.techniqueId}</p>}
-                    {complexInfo.percent > 0 && (
-                      <p className="text-secondary text-xs mt-2">⚡ {complexInfo.reason} (+{complexInfo.percent}%)</p>
-                    )}
-                  </div>
-
-                  {/* Сюжет */}
-                  <div>
-                    <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Сюжет *</label>
-                    <select value={form.subjectId} onChange={e => set('subjectId', e.target.value)}
-                      className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
-                        ${errors.subjectId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
-                      <option value="" className="bg-surface-container">— выберите сюжет —</option>
-                      {options.subjects.map(s => (
-                        <option key={s.id} value={s.id} className="bg-surface-container">{s.name}</option>
-                      ))}
-                    </select>
-                    {errors.subjectId && <p className="text-red-400 text-xs mt-1">{errors.subjectId}</p>}
-                  </div>
-
-                  {/* Базовая цена — показывается когда выбраны все параметры */}
-                  {unitPrice > 0 && (
-                    <div className="md:col-span-2 bg-white/[0.03] rounded-lg p-4 border border-white/5">
-                      <span className="text-xs text-on-surface/40 uppercase tracking-widest">Цена по прайсу за 1 картину: </span>
-                      <span className="text-secondary font-bold">{unitPrice.toLocaleString('ru-RU')} ₽</span>
-                    </div>
-                  )}
-                  {form.canvasSizeId && form.designTypeId && form.techniqueId && form.subjectId && !unitPrice && (
-                    <div className="md:col-span-2 text-on-surface/40 text-xs py-2">
-                      Выбранная комбинация отсутствует в прайс-листе — уточните у менеджера
-                    </div>
-                  )}
+                {/* Размер */}
+                <div>
+                  <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Размер холста *</label>
+                  <select value={form.sizeId} onChange={e => set('sizeId', e.target.value)}
+                    className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
+                      ${errors.sizeId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
+                    <option value="" className="bg-surface-container">— выберите размер —</option>
+                    {sizes.map(s => (
+                      <option key={s.id} value={s.id} className="bg-surface-container">
+                        {s.size} — от {s.price.toLocaleString('ru-RU')} ₽
+                      </option>
+                    ))}
+                  </select>
+                  {errors.sizeId && <p className="text-red-400 text-xs mt-1">{errors.sizeId}</p>}
                 </div>
-              )}
+
+                {/* Оформление */}
+                <div>
+                  <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Вид оформления *</label>
+                  <select value={form.formatId} onChange={e => set('formatId', e.target.value)}
+                    className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
+                      ${errors.formatId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
+                    {formats.map(f => (
+                      <option key={f.id} value={f.id} className="bg-surface-container">
+                        {f.format}{f.priceExtra > 0 ? ` (+${f.priceExtra.toLocaleString('ru-RU')} ₽)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.formatId && <p className="text-red-400 text-xs mt-1">{errors.formatId}</p>}
+                </div>
+
+                {/* Техника */}
+                <div>
+                  <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Техника исполнения *</label>
+                  <select value={form.designId} onChange={e => set('designId', e.target.value)}
+                    className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
+                      ${errors.designId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
+                    {designs.map(d => (
+                      <option key={d.id} value={d.id} className="bg-surface-container">
+                        {d.design}{d.priceExtra > 0 ? ` (+${d.priceExtra.toLocaleString('ru-RU')} ₽)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.designId && <p className="text-red-400 text-xs mt-1">{errors.designId}</p>}
+                </div>
+
+                {/* Сюжет */}
+                <div>
+                  <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Сюжет *</label>
+                  <select value={form.plotId} onChange={e => set('plotId', e.target.value)}
+                    className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors appearance-none cursor-pointer
+                      ${errors.plotId ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`}>
+                    {plots.map(p => (
+                      <option key={p.id} value={p.id} className="bg-surface-container">
+                        {p.plot}{p.priceExtra > 0 ? ` (+${p.priceExtra.toLocaleString('ru-RU')} ₽)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.plotId && <p className="text-red-400 text-xs mt-1">{errors.plotId}</p>}
+                </div>
+              </div>
             </div>
 
-            {/* ── 3. Дата и количество ───────────────────────────────── */}
+            {/* ── 3. Сроки и количество ─────────────────────────────── */}
             <div className="glass p-8 rounded-xl">
               <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
                 <span className="w-7 h-7 rounded-full border border-tertiary/40 flex items-center justify-center text-xs text-tertiary shrink-0">3</span>
@@ -403,7 +358,7 @@ export default function OrderPage() {
               </h2>
               <div className="grid md:grid-cols-2 gap-6">
 
-                {/* Желаемая дата */}
+                {/* Дата */}
                 <div>
                   <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Желаемая дата готовности *</label>
                   <input type="date" value={form.deadline} min={minDate}
@@ -411,11 +366,10 @@ export default function OrderPage() {
                     className={`w-full bg-transparent border-b py-3 text-on-surface focus:outline-none transition-colors cursor-pointer
                       ${errors.deadline ? 'border-red-400' : 'border-on-surface/20 focus:border-secondary'}`} />
                   {errors.deadline && <p className="text-red-400 text-xs mt-1">{errors.deadline}</p>}
-                  {form.deadline && deadlineInfo.days !== null && (
+                  {calc && calc.surchargePercent !== 0 && (
                     <div className="mt-2">
-                      {deadlineInfo.percent > 0  && <Badge color="red"   text={`+${deadlineInfo.percent}% — ${deadlineInfo.reason}`} />}
-                      {deadlineInfo.percent < 0  && <Badge color="green" text={`−${Math.abs(deadlineInfo.percent)}% — ${deadlineInfo.reason}`} />}
-                      {deadlineInfo.percent === 0 && deadlineInfo.days >= 0 && <Badge color="gray" text={deadlineInfo.reason} />}
+                      {calc.surchargePercent > 0 && <Badge color="red"   text={`+${calc.surchargePercent}% — ${calc.surchargeReason}`} />}
+                      {calc.surchargePercent < 0 && <Badge color="green" text={`−${Math.abs(calc.surchargePercent)}% — ${calc.surchargeReason}`} />}
                     </div>
                   )}
                   <div className="mt-3 space-y-1 text-xs text-on-surface/30">
@@ -437,58 +391,116 @@ export default function OrderPage() {
                     <button type="button" onClick={() => set('quantity', qty + 1)}
                       className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-on-surface/60 hover:border-primary hover:text-primary transition-all text-xl">+</button>
                   </div>
+                  {calc && calc.discountPercent > 0 && (
+                    <div className="mt-3">
+                      <Badge color="green" text={`−${calc.discountPercent}% — ${calc.discountReason}`} />
+                    </div>
+                  )}
                   <div className="mt-3 space-y-1 text-xs text-on-surface/30">
                     <div className={`flex gap-2 ${qty >= 2  ? 'text-green-400' : ''}`}><span>●</span> 2 картины — скидка 5%</div>
                     <div className={`flex gap-2 ${qty >= 3  ? 'text-green-400' : ''}`}><span>●</span> 3–4 картины — скидка 10%</div>
                     <div className={`flex gap-2 ${qty >= 5  ? 'text-green-400' : ''}`}><span>●</span> 5–9 картин — скидка 15%</div>
                     <div className={`flex gap-2 ${qty >= 10 ? 'text-green-400' : ''}`}><span>●</span> 10+ картин — скидка 20%</div>
                   </div>
-                  {quantityInfo.percent > 0 && (
-                    <div className="mt-3"><Badge color="green" text={`−${quantityInfo.percent}% — ${quantityInfo.reason}`} /></div>
-                  )}
                 </div>
               </div>
 
-              {/* Калькулятор цены */}
-              {unitPrice > 0 && (
+              {/* Калькулятор */}
+              {calc && form.sizeId && (
                 <div className="mt-8 bg-white/[0.03] rounded-xl p-6 border border-white/5">
                   <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-4">Расчёт стоимости</div>
-                  <div className="space-y-0.5">
-                    <PriceRow label="Цена по прайсу" value={`${unitPrice.toLocaleString('ru-RU')} ₽`} />
-                    {qty > 1 && (
-                      <PriceRow label={`× ${qty} картин`} value={`${(unitPrice * qty).toLocaleString('ru-RU')} ₽`} />
-                    )}
-                    {complexInfo.percent > 0 && (
-                      <PriceRow label={`Надбавка: ${complexInfo.reason}`} value={`+${complexInfo.percent}%`} color="text-secondary" />
-                    )}
-                    {deadlineInfo.percent > 0 && (
-                      <PriceRow label={`Надбавка: ${deadlineInfo.reason}`} value={`+${deadlineInfo.percent}%`} color="text-primary" />
-                    )}
-                    {quantityInfo.percent > 0 && (
-                      <PriceRow label={`Скидка: ${quantityInfo.reason}`} value={`−${quantityInfo.percent}%`} color="text-green-400" />
-                    )}
-                    {deadlineInfo.percent < 0 && (
-                      <PriceRow label={`Скидка: ${deadlineInfo.reason}`} value={`−${Math.abs(deadlineInfo.percent)}%`} color="text-green-400" />
-                    )}
-                  </div>
+                  {calcLoading ? (
+                    <div className="text-on-surface/30 text-sm">Пересчитываем...</div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      <PriceRow label={`Базовая цена (${selectedSize?.size})`} value={`${selectedSize?.price?.toLocaleString('ru-RU')} ₽`} />
+                      {selectedFormat?.priceExtra > 0 && (
+                        <PriceRow label={`Оформление: ${selectedFormat.format}`} value={`+${selectedFormat.priceExtra.toLocaleString('ru-RU')} ₽`} />
+                      )}
+                      {selectedDesign?.priceExtra > 0 && (
+                        <PriceRow label={`Техника: ${selectedDesign.design}`} value={`+${selectedDesign.priceExtra.toLocaleString('ru-RU')} ₽`} />
+                      )}
+                      {selectedPlot?.priceExtra > 0 && (
+                        <PriceRow label={`Сюжет: ${selectedPlot.plot}`} value={`+${selectedPlot.priceExtra.toLocaleString('ru-RU')} ₽`} />
+                      )}
+                      <PriceRow label="Цена за единицу" value={`${calc.priceUnit?.toLocaleString('ru-RU')} ₽`} />
+                      {qty > 1 && (
+                        <PriceRow label={`× ${qty} картин`} value={`${(calc.priceUnit * qty)?.toLocaleString('ru-RU')} ₽`} />
+                      )}
+                      {calc.surchargePercent > 0 && (
+                        <PriceRow label={`Надбавка: ${calc.surchargeReason}`} value={`+${calc.surchargePercent}%`} color="text-secondary" />
+                      )}
+                      {calc.discountPercent > 0 && (
+                        <PriceRow label={`Скидка: ${calc.discountReason}`} value={`−${calc.discountPercent}%`} color="text-green-400" />
+                      )}
+                      {calc.surchargePercent < 0 && (
+                        <PriceRow label={`Скидка: ${calc.surchargeReason}`} value={`−${Math.abs(calc.surchargePercent)}%`} color="text-green-400" />
+                      )}
+                    </div>
+                  )}
                   <div className="border-t border-white/10 mt-4 pt-4 flex items-center justify-between">
                     <span className="text-on-surface/60 text-sm">Итого</span>
-                    <span className="text-secondary font-black text-3xl font-serif">{totalPrice.toLocaleString('ru-RU')} ₽</span>
+                    <span className="text-secondary font-black text-3xl font-serif">
+                      {calc.totalPrice?.toLocaleString('ru-RU')} ₽
+                    </span>
                   </div>
                   <p className="text-on-surface/25 text-xs mt-2">* Окончательная цена согласовывается после обсуждения деталей</p>
                 </div>
               )}
             </div>
 
-            {/* ── 4. Исходное фото ───────────────────────────────────── */}
+            {/* ── 4. Аванс ─────────────────────────────────────────── */}
+            {calc && calc.totalPrice > 0 && (
+              <div className="glass p-8 rounded-xl">
+                <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full border border-on-surface/20 flex items-center justify-center text-xs text-on-surface/40 shrink-0">4</span>
+                  Аванс
+                </h2>
+                <p className="text-on-surface/40 text-sm mb-5">Укажите сумму аванса (30–50% от стоимости). Остаток оплачивается при получении.</p>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Сумма аванса (₽)</label>
+                    <input type="number" min="0" max={calc.totalPrice}
+                      value={form.prepayment || ''}
+                      onChange={e => set('prepayment', Math.min(Number(e.target.value) || 0, calc.totalPrice))}
+                      placeholder="0" className="input-field" />
+                  </div>
+                  <div className="flex flex-col justify-center space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-on-surface/50">Итого к оплате:</span>
+                      <span className="text-on-surface font-bold">{calc.totalPrice?.toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                    <div className="flex justify-between text-green-400">
+                      <span>Аванс:</span>
+                      <span className="font-bold">− {Number(form.prepayment || 0).toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                    <div className="flex justify-between border-t border-white/10 pt-2 mt-1">
+                      <span className="text-on-surface/50">Остаток при получении:</span>
+                      <span className="text-secondary font-bold">
+                        {(calc.totalPrice - Number(form.prepayment || 0)).toLocaleString('ru-RU')} ₽
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5 flex-wrap">
+                  {[0.3, 0.4, 0.5].map(pct => (
+                    <button key={pct} type="button"
+                      onClick={() => set('prepayment', Math.round(calc.totalPrice * pct))}
+                      className="text-xs px-4 py-2 glass rounded-lg text-on-surface/50 hover:text-secondary hover:border-secondary/40 border border-transparent transition-all">
+                      {Math.round(pct * 100)}% = {Math.round(calc.totalPrice * pct).toLocaleString('ru-RU')} ₽
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── 5. Исходные материалы ─────────────────────────────── */}
             <div className="glass p-8 rounded-xl">
               <h2 className="font-serif text-xl font-bold text-on-surface mb-2 flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full border border-on-surface/20 flex items-center justify-center text-xs text-on-surface/40 shrink-0">4</span>
+                <span className="w-7 h-7 rounded-full border border-on-surface/20 flex items-center justify-center text-xs text-on-surface/40 shrink-0">5</span>
                 Исходные материалы
               </h2>
-              <p className="text-on-surface/40 text-sm mb-5">
-                Загрузите фото, эскиз или референс — что художник должен использовать как основу
-              </p>
+              <p className="text-on-surface/40 text-sm mb-5">Загрузите фото, эскиз или референс — что художник должен использовать как основу</p>
               <label className="block cursor-pointer">
                 <div className={`border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300
                   ${files.length > 0 ? 'border-primary/50 bg-primary/5' : 'border-white/10 hover:border-primary/30 hover:bg-white/[0.02]'}`}>
@@ -509,67 +521,18 @@ export default function OrderPage() {
                 <input type="file" multiple accept="image/*,.pdf" onChange={e => setFiles(Array.from(e.target.files).slice(0,5))} className="hidden" />
               </label>
               {files.length > 0 && (
-                <button type="button" onClick={() => setFiles([])} className="mt-2 text-xs text-on-surface/30 hover:text-red-400 transition-colors">
-                  Очистить
-                </button>
+                <button type="button" onClick={() => setFiles([])} className="mt-2 text-xs text-on-surface/30 hover:text-red-400 transition-colors">Очистить</button>
               )}
             </div>
 
-            {/* ── 5. Аванс ──────────────────────────────────────────── */}
-            {totalPrice > 0 && (
-              <div className="glass p-8 rounded-xl">
-                <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
-                  <span className="w-7 h-7 rounded-full border border-on-surface/20 flex items-center justify-center text-xs text-on-surface/40 shrink-0">5</span>
-                  Аванс
-                </h2>
-                <p className="text-on-surface/40 text-sm mb-5">
-                  Укажите сумму аванса (30–50% от стоимости). Остаток оплачивается при получении.
-                </p>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Сумма аванса (₽)</label>
-                    <input type="number" min="0" max={totalPrice}
-                      value={form.prepayment || ''}
-                      onChange={e => set('prepayment', Math.min(Number(e.target.value) || 0, totalPrice))}
-                      placeholder="0" className="input-field" />
-                  </div>
-                  <div className="flex flex-col justify-center space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-on-surface/50">Итого к оплате:</span>
-                      <span className="text-on-surface font-bold">{totalPrice.toLocaleString('ru-RU')} ₽</span>
-                    </div>
-                    <div className="flex justify-between text-green-400">
-                      <span>Аванс:</span>
-                      <span className="font-bold">− {Number(form.prepayment || 0).toLocaleString('ru-RU')} ₽</span>
-                    </div>
-                    <div className="flex justify-between border-t border-white/10 pt-2 mt-1">
-                      <span className="text-on-surface/50">Остаток при получении:</span>
-                      <span className="text-secondary font-bold">
-                        {(totalPrice - Number(form.prepayment || 0)).toLocaleString('ru-RU')} ₽
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-5 flex-wrap">
-                  {[0.3, 0.4, 0.5].map(pct => (
-                    <button key={pct} type="button"
-                      onClick={() => set('prepayment', Math.round(totalPrice * pct))}
-                      className="text-xs px-4 py-2 glass rounded-lg text-on-surface/50 hover:text-secondary hover:border-secondary/40 border border-transparent transition-all">
-                      {Math.round(pct * 100)}% = {Math.round(totalPrice * pct).toLocaleString('ru-RU')} ₽
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── 6. Комментарий ────────────────────────────────────── */}
+            {/* ── 6. Пожелания ─────────────────────────────────────── */}
             <div className="glass p-8 rounded-xl">
               <h2 className="font-serif text-xl font-bold text-on-surface mb-6 flex items-center gap-3">
                 <span className="w-7 h-7 rounded-full border border-on-surface/10 flex items-center justify-center text-xs text-on-surface/30 shrink-0">6</span>
                 Пожелания к картине
               </h2>
               <textarea value={form.comments} onChange={e => set('comments', e.target.value)} rows={5}
-                placeholder="Опишите сюжет, настроение, цветовую гамму, детали которые важно передать."
+                placeholder="Опишите сюжет, настроение, цветовую гамму, детали которые важно передать. Чем подробнее — тем точнее результат."
                 className="w-full bg-transparent border-b border-on-surface/20 py-3 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary transition-colors resize-none text-sm" />
             </div>
 
@@ -579,9 +542,9 @@ export default function OrderPage() {
               </div>
             )}
 
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={sending}
               className="btn-primary w-full justify-center text-lg py-5 disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Отправляем заказ...' : 'Отправить заявку →'}
+              {sending ? 'Отправляем заказ...' : 'Отправить заявку →'}
             </button>
 
             <p className="text-center text-on-surface/25 text-xs">
@@ -589,6 +552,7 @@ export default function OrderPage() {
               После отправки мы пришлём эскиз на согласование в течение 24 часов.
             </p>
           </form>
+          )}
         </div>
       </div>
       <Footer />
