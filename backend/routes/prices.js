@@ -47,7 +47,99 @@ router.get('/options', async (req, res) => {
   }
 });
 
-// ─── GET /api/prices/:id — одна позиция ──────────────────────────────────────
+// ─── CRUD для справочников (admin) ───────────────────────────────────────────
+// ВАЖНО: все именованные маршруты должны быть выше /:id
+
+// Размеры холста
+router.get('/canvas-sizes', async (req, res) => {
+  try { res.json(await prisma.canvasSize.findMany({ orderBy: { id: 'asc' } })); }
+  catch { res.status(500).json({ error: 'Ошибка получения' }); }
+});
+router.post('/canvas-sizes', auth, async (req, res) => {
+  const { size } = req.body;
+  if (!size) return res.status(400).json({ error: 'Укажите размер' });
+  try { res.status(201).json(await prisma.canvasSize.create({ data: { size } })); }
+  catch { res.status(500).json({ error: 'Ошибка создания' }); }
+});
+router.delete('/canvas-sizes/:id', auth, async (req, res) => {
+  try { await prisma.canvasSize.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
+  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
+});
+
+// Виды оформления
+router.get('/design-types', async (req, res) => {
+  try { res.json(await prisma.designType.findMany({ orderBy: { id: 'asc' } })); }
+  catch { res.status(500).json({ error: 'Ошибка получения' }); }
+});
+router.post('/design-types', auth, async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Укажите название' });
+  try { res.status(201).json(await prisma.designType.create({ data: { name } })); }
+  catch { res.status(500).json({ error: 'Ошибка создания' }); }
+});
+router.delete('/design-types/:id', auth, async (req, res) => {
+  try { await prisma.designType.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
+  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
+});
+
+// Техники исполнения
+router.get('/techniques', async (req, res) => {
+  try { res.json(await prisma.technique.findMany({ orderBy: { id: 'asc' } })); }
+  catch { res.status(500).json({ error: 'Ошибка получения' }); }
+});
+router.post('/techniques', auth, async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Укажите название' });
+  try { res.status(201).json(await prisma.technique.create({ data: { name } })); }
+  catch { res.status(500).json({ error: 'Ошибка создания' }); }
+});
+router.delete('/techniques/:id', auth, async (req, res) => {
+  try { await prisma.technique.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
+  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
+});
+
+// Сюжеты
+router.get('/subjects', async (req, res) => {
+  try { res.json(await prisma.subject.findMany({ orderBy: { id: 'asc' } })); }
+  catch { res.status(500).json({ error: 'Ошибка получения' }); }
+});
+router.post('/subjects', auth, async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Укажите название' });
+  try { res.status(201).json(await prisma.subject.create({ data: { name } })); }
+  catch { res.status(500).json({ error: 'Ошибка создания' }); }
+});
+router.delete('/subjects/:id', auth, async (req, res) => {
+  try { await prisma.subject.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
+  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
+});
+
+// Скидки/надбавки
+router.get('/discounts', async (req, res) => {
+  try { res.json(await prisma.discount.findMany({ orderBy: { id: 'asc' } })); }
+  catch { res.status(500).json({ error: 'Ошибка получения' }); }
+});
+router.post('/discounts', auth, async (req, res) => {
+  const { percent, description } = req.body;
+  if (percent === undefined || !description) return res.status(400).json({ error: 'Укажите percent и description' });
+  try { res.status(201).json(await prisma.discount.create({ data: { percent: Number(percent), description } })); }
+  catch { res.status(500).json({ error: 'Ошибка создания' }); }
+});
+router.put('/discounts/:id', auth, async (req, res) => {
+  const { percent, description } = req.body;
+  try {
+    res.json(await prisma.discount.update({
+      where: { id: Number(req.params.id) },
+      data:  { ...(percent !== undefined && { percent: Number(percent) }), ...(description && { description }) },
+    }));
+  } catch { res.status(500).json({ error: 'Ошибка обновления' }); }
+});
+router.delete('/discounts/:id', auth, async (req, res) => {
+  try { await prisma.discount.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
+  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
+});
+
+// ─── GET /api/prices/:id — одна позиция (должен быть ПОСЛЕ всех именованных!) ─
 router.get('/:id', async (req, res) => {
   try {
     const price = await prisma.price.findUnique({
@@ -109,82 +201,6 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Ошибка удаления' });
   }
-});
-
-// ─── CRUD для справочников (admin) ───────────────────────────────────────────
-
-// Размеры холста
-router.get ('/canvas-sizes',      async (req, res) => { res.json(await prisma.canvasSize.findMany({ orderBy: { id: 'asc' } })); });
-router.post('/canvas-sizes', auth, async (req, res) => {
-  const { size } = req.body;
-  if (!size) return res.status(400).json({ error: 'Укажите размер' });
-  try { res.status(201).json(await prisma.canvasSize.create({ data: { size } })); }
-  catch { res.status(500).json({ error: 'Ошибка создания' }); }
-});
-router.delete('/canvas-sizes/:id', auth, async (req, res) => {
-  try { await prisma.canvasSize.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
-  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
-});
-
-// Виды оформления
-router.get ('/design-types',      async (req, res) => { res.json(await prisma.designType.findMany({ orderBy: { id: 'asc' } })); });
-router.post('/design-types', auth, async (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Укажите название' });
-  try { res.status(201).json(await prisma.designType.create({ data: { name } })); }
-  catch { res.status(500).json({ error: 'Ошибка создания' }); }
-});
-router.delete('/design-types/:id', auth, async (req, res) => {
-  try { await prisma.designType.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
-  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
-});
-
-// Техники исполнения
-router.get ('/techniques',      async (req, res) => { res.json(await prisma.technique.findMany({ orderBy: { id: 'asc' } })); });
-router.post('/techniques', auth, async (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Укажите название' });
-  try { res.status(201).json(await prisma.technique.create({ data: { name } })); }
-  catch { res.status(500).json({ error: 'Ошибка создания' }); }
-});
-router.delete('/techniques/:id', auth, async (req, res) => {
-  try { await prisma.technique.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
-  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
-});
-
-// Сюжеты
-router.get ('/subjects',      async (req, res) => { res.json(await prisma.subject.findMany({ orderBy: { id: 'asc' } })); });
-router.post('/subjects', auth, async (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Укажите название' });
-  try { res.status(201).json(await prisma.subject.create({ data: { name } })); }
-  catch { res.status(500).json({ error: 'Ошибка создания' }); }
-});
-router.delete('/subjects/:id', auth, async (req, res) => {
-  try { await prisma.subject.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
-  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
-});
-
-// Скидки/надбавки
-router.get ('/discounts',      async (req, res) => { res.json(await prisma.discount.findMany({ orderBy: { id: 'asc' } })); });
-router.post('/discounts', auth, async (req, res) => {
-  const { percent, description } = req.body;
-  if (percent === undefined || !description) return res.status(400).json({ error: 'Укажите percent и description' });
-  try { res.status(201).json(await prisma.discount.create({ data: { percent: Number(percent), description } })); }
-  catch { res.status(500).json({ error: 'Ошибка создания' }); }
-});
-router.put('/discounts/:id', auth, async (req, res) => {
-  const { percent, description } = req.body;
-  try {
-    res.json(await prisma.discount.update({
-      where: { id: Number(req.params.id) },
-      data:  { ...(percent !== undefined && { percent: Number(percent) }), ...(description && { description }) },
-    }));
-  } catch { res.status(500).json({ error: 'Ошибка обновления' }); }
-});
-router.delete('/discounts/:id', auth, async (req, res) => {
-  try { await prisma.discount.delete({ where: { id: Number(req.params.id) } }); res.json({ success: true }); }
-  catch { res.status(500).json({ error: 'Ошибка удаления' }); }
 });
 
 module.exports = router;
