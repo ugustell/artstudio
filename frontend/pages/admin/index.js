@@ -56,7 +56,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
         body.issueDate = new Date().toISOString().split('T')[0];
       else if (issueDate)
         body.issueDate = issueDate;
-console.log('API BASE:', apiBase);
+
       const res = await fetch(`${apiBase}/api/orders/${order.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
