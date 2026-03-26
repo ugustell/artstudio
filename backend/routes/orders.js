@@ -8,7 +8,6 @@ const auth     = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, '..', 'uploads');
@@ -28,44 +27,40 @@ const upload = multer({
   },
 });
 
-// ─── Маппинг заказа в формат который ожидает фронт ───────────────────────────
 function mapOrder(o) {
   return {
     ...o,
-    // Телефон/email — берём из заказа напрямую (не только из user)
-    phone: o.phone || o.user?.phone || '—',
-    email: o.email || o.user?.email || '—',
+    phone:      o.phone || o.user?.phone || '—',
+    email:      o.email || o.user?.email || '—',
+    clientName: o.clientName || o.user?.name || '—',
     photoPaths: JSON.parse(o.photoPaths || '[]'),
     items: (o.items || []).map(item => ({
-      id:          item.id,
-      quantity:    item.quantity,
+      id:           item.id,
+      quantity:     item.quantity,
       pricePerUnit: item.priceUnit,
-      total:       item.amount,
-      // Вложенный объект price — именно такой формат ожидает фронт
+      total:        item.amount,
       price: {
-        canvasSize:  o.size   ? { id: o.size.id,   size: o.size.size,     price: o.size.price }       : null,
-        designType:  o.format ? { id: o.format.id, name: o.format.format, priceExtra: o.format.priceExtra } : null,
-        technique:   o.design ? { id: o.design.id, name: o.design.design, priceExtra: o.design.priceExtra } : null,
-        subject:     o.plot   ? { id: o.plot.id,   name: o.plot.plot,     priceExtra: o.plot.priceExtra }   : null,
+        canvasSize: o.size   ? { id: o.size.id,   size: o.size.size,     price: o.size.price }            : null,
+        designType: o.format ? { id: o.format.id, name: o.format.format, priceExtra: o.format.priceExtra } : null,
+        technique:  o.design ? { id: o.design.id, name: o.design.design, priceExtra: o.design.priceExtra } : null,
+        subject:    o.plot   ? { id: o.plot.id,   name: o.plot.plot,     priceExtra: o.plot.priceExtra }   : null,
       },
     })),
   };
 }
 
-// ─── Расчёт цены ─────────────────────────────────────────────────────────────
 async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadline }) {
   const qty = Number(quantity) || 1;
-
   const [size, format, design, plot] = await Promise.all([
     sizeId   ? prisma.size.findUnique({ where: { id: Number(sizeId) } })     : null,
     formatId ? prisma.format.findUnique({ where: { id: Number(formatId) } }) : null,
     designId ? prisma.design.findUnique({ where: { id: Number(designId) } }) : null,
     plotId   ? prisma.plot.findUnique({ where: { id: Number(plotId) } })     : null,
   ]);
-
-  const priceUnit = (size?.price || 0) + (format?.priceExtra || 0) +
-                    (design?.priceExtra || 0) + (plot?.priceExtra || 0);
-
+  if (!size || !format || !design || !plot) {
+    throw new Error('Справочники устарели — обновите страницу и попробуйте снова.');
+  }
+  const priceUnit = size.price + format.priceExtra + design.priceExtra + plot.priceExtra;
   let surchargePercent = 0, surchargeReason = '';
   if (deadline) {
     const today = new Date(); today.setHours(0,0,0,0);
@@ -75,38 +70,30 @@ async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadlin
     else if (days < 14) { surchargePercent = 15; surchargeReason = 'Ускоренный срок (7–13 дней)'; }
     else if (days >= 30){ surchargePercent = -5; surchargeReason = 'Длительный срок (30+ дней)'; }
   }
-
   let discountPercent = 0, discountReason = '';
   if      (qty >= 10) { discountPercent = 20; discountReason = 'Скидка за объём — 10+ картин'; }
   else if (qty >= 5)  { discountPercent = 15; discountReason = 'Скидка за объём — 5–9 картин'; }
   else if (qty >= 3)  { discountPercent = 10; discountReason = 'Скидка за объём — 3–4 картины'; }
   else if (qty >= 2)  { discountPercent =  5; discountReason = 'Скидка за объём — 2 картины'; }
-
-  const surcharge = Math.max(surchargePercent, 0);
-  const deadline5 = surchargePercent < 0 ? Math.abs(surchargePercent) : 0;
-  const discount  = discountPercent + deadline5;
+  const surcharge  = Math.max(surchargePercent, 0);
+  const deadline5  = surchargePercent < 0 ? Math.abs(surchargePercent) : 0;
+  const discount   = discountPercent + deadline5;
   const totalPrice = Math.round(priceUnit * qty * (1 + surcharge / 100) * (1 - discount / 100));
-
   return { priceUnit, qty, surchargePercent, surchargeReason, discountPercent, discountReason, totalPrice };
 }
 
 const include = { size: true, format: true, design: true, plot: true, items: true, user: true };
 
-// ─── POST /api/orders — создать заказ ────────────────────────────────────────
 router.post('/', upload.array('photos', 5), async (req, res) => {
   const { clientName, phone, email, sizeId, formatId, designId, plotId,
           quantity, deadline, prepayment, comments } = req.body;
-
   if (!clientName || !phone || !email || !sizeId || !formatId || !designId || !plotId) {
     return res.status(400).json({ error: 'Заполните все обязательные поля' });
   }
-
   try {
     const pricing    = await calcPrice({ sizeId, formatId, designId, plotId, quantity, deadline });
     const photoPaths = (req.files || []).map(f => `/uploads/${f.filename}`);
     const prepayVal  = Math.max(0, Number(prepayment) || 0);
-
-    // Достаём userId из токена если пользователь авторизован
     let userId = null;
     const authHeader = req.headers['authorization'];
     if (authHeader) {
@@ -116,12 +103,11 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
         userId = decoded.id;
       } catch {}
     }
-
     const order = await prisma.order.create({
       data: {
         clientName, phone, email,
-        deadline:         deadline   || '',
-        comments:         comments   || '',
+        deadline:         deadline  || '',
+        comments:         comments  || '',
         surchargePercent: pricing.surchargePercent,
         surchargeReason:  pricing.surchargeReason,
         discountPercent:  pricing.discountPercent,
@@ -136,9 +122,7 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
         designId: Number(designId),
         plotId:   Number(plotId),
       },
-      include,
     });
-
     await prisma.orderItem.create({
       data: {
         orderId:   order.id,
@@ -147,12 +131,7 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
         amount:    pricing.priceUnit * pricing.qty,
       },
     });
-
-    // Перечитываем с items
-    const fullOrder = await prisma.order.findUnique({ where: { id: order.id }, include });
-
     res.status(201).json({
-      success:          true,
       orderId:          order.id,
       totalPrice:       pricing.totalPrice,
       prepayment:       prepayVal,
@@ -164,11 +143,10 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
     });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Ошибка при создании заказа' });
+    res.status(500).json({ error: e.message || 'Ошибка при создании заказа' });
   }
 });
 
-// ─── GET /api/orders — список (admin) ────────────────────────────────────────
 router.get('/', auth, async (req, res) => {
   const { status, search, page = 1, limit = 20, dateFrom, dateTo } = req.query;
   const skip  = (Number(page) - 1) * Number(limit);
@@ -191,29 +169,21 @@ router.get('/', auth, async (req, res) => {
       prisma.order.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take: Number(limit), include }),
       prisma.order.count({ where }),
     ]);
-    res.json({
-      orders: orders.map(mapOrder),
-      total, page: Number(page), pages: Math.ceil(total / Number(limit)),
-    });
+    res.json({ orders: orders.map(mapOrder), total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Ошибка получения заказов' });
   }
 });
 
-// ─── GET /api/orders/:id ──────────────────────────────────────────────────────
 router.get('/:id', auth, async (req, res) => {
   try {
-    const order = await prisma.order.findUnique({
-      where: { id: Number(req.params.id) },
-      include,
-    });
+    const order = await prisma.order.findUnique({ where: { id: Number(req.params.id) }, include });
     if (!order) return res.status(404).json({ error: 'Заказ не найден' });
     res.json(mapOrder(order));
   } catch { res.status(500).json({ error: 'Ошибка сервера' }); }
 });
 
-// ─── PATCH /api/orders/:id (admin) ───────────────────────────────────────────
 router.patch('/:id', auth, async (req, res) => {
   const { status, comments, issueDate } = req.body;
   const allowed = ['new', 'in_progress', 'ready', 'delivered'];
@@ -229,7 +199,6 @@ router.patch('/:id', auth, async (req, res) => {
   } catch { res.status(500).json({ error: 'Ошибка обновления' }); }
 });
 
-// ─── DELETE /api/orders/:id (admin) ──────────────────────────────────────────
 router.delete('/:id', auth, async (req, res) => {
   try {
     const order = await prisma.order.findUnique({ where: { id: Number(req.params.id) } });
