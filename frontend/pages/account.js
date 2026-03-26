@@ -175,8 +175,6 @@ export default function AccountPage() {
                             ['Размер',     displayRef(order.size,   ['size', 'name', 'label'])],
                             ['Оформление', displayRef(order.format, ['format', 'name', 'label'])],
                             ['Обработка',  displayRef(order.design, ['design', 'name', 'label'])],
-                            ['Материал',   order.material || '—'],
-                            ['Покрытие',   order.coating  || '—'],
                             ['Статус',     <StatusBadge key="s" status={order.status} />],
                           ].map(([label, val]) => (
                             <div key={label}>
