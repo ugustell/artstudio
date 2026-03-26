@@ -9,6 +9,12 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+const SIZE_PATHS = ['/sizes', '/prices/sizes'];
+const FORMAT_PATHS = ['/formats', '/prices/formats'];
+const DESIGN_PATHS = ['/designs', '/prices/designs'];
+const PLOT_PATHS = ['/plots', '/prices/plots'];
+const DISCOUNT_PATHS = ['/discounts', '/prices/discounts'];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ВАЖНО: /api/prices/options должен быть ДО /api/prices,
 // иначе Express матчит "options" как :id в /prices/:id
@@ -56,19 +62,19 @@ router.get('/prices', async (req, res) => {
 });
 
 // ── GET все справочники ───────────────────────────────────────────────────────
-router.get('/sizes',     async (req, res) => {
+router.get(SIZE_PATHS,     async (req, res) => {
   res.json(await prisma.size.findMany({ orderBy: { price: 'asc' } }));
 });
-router.get('/formats',   async (req, res) => {
+router.get(FORMAT_PATHS,   async (req, res) => {
   res.json(await prisma.format.findMany({ orderBy: { id: 'asc' } }));
 });
-router.get('/designs',   async (req, res) => {
+router.get(DESIGN_PATHS,   async (req, res) => {
   res.json(await prisma.design.findMany({ orderBy: { id: 'asc' } }));
 });
-router.get('/plots',     async (req, res) => {
+router.get(PLOT_PATHS,     async (req, res) => {
   res.json(await prisma.plot.findMany({ orderBy: { id: 'asc' } }));
 });
-router.get('/discounts', async (req, res) => {
+router.get(DISCOUNT_PATHS, async (req, res) => {
   res.json(await prisma.discount.findMany({ orderBy: { id: 'asc' } }));
 });
 
@@ -129,7 +135,7 @@ router.get('/calc', async (req, res) => {
 });
 
 // ── CRUD справочников (только admin) ─────────────────────────────────────────
-router.post('/sizes', auth, async (req, res) => {
+router.post(SIZE_PATHS, auth, async (req, res) => {
   const { size, price } = req.body;
   if (!size || price === undefined || price === null || Number.isNaN(Number(price))) {
     return res.status(400).json({ error: 'Укажите size и price' });
@@ -142,7 +148,7 @@ router.post('/sizes', auth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка создания размера' });
   }
 });
-router.delete('/sizes/:id', auth, async (req, res) => {
+router.delete(['/sizes/:id', '/prices/sizes/:id'], auth, async (req, res) => {
   try {
     await prisma.size.delete({ where: { id: Number(req.params.id) } });
     res.json({ success: true });
@@ -151,7 +157,7 @@ router.delete('/sizes/:id', auth, async (req, res) => {
   }
 });
 
-router.post('/formats', auth, async (req, res) => {
+router.post(FORMAT_PATHS, auth, async (req, res) => {
   const { format, priceExtra = 0 } = req.body;
   if (!format) return res.status(400).json({ error: 'Укажите format' });
   if (Number.isNaN(Number(priceExtra))) return res.status(400).json({ error: 'Укажите корректный priceExtra' });
@@ -163,7 +169,7 @@ router.post('/formats', auth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка создания оформления' });
   }
 });
-router.delete('/formats/:id', auth, async (req, res) => {
+router.delete(['/formats/:id', '/prices/formats/:id'], auth, async (req, res) => {
   try {
     await prisma.format.delete({ where: { id: Number(req.params.id) } });
     res.json({ success: true });
@@ -172,7 +178,7 @@ router.delete('/formats/:id', auth, async (req, res) => {
   }
 });
 
-router.post('/designs', auth, async (req, res) => {
+router.post(DESIGN_PATHS, auth, async (req, res) => {
   const { design, priceExtra = 0 } = req.body;
   if (!design) return res.status(400).json({ error: 'Укажите design' });
   if (Number.isNaN(Number(priceExtra))) return res.status(400).json({ error: 'Укажите корректный priceExtra' });
@@ -184,7 +190,7 @@ router.post('/designs', auth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка создания техники' });
   }
 });
-router.delete('/designs/:id', auth, async (req, res) => {
+router.delete(['/designs/:id', '/prices/designs/:id'], auth, async (req, res) => {
   try {
     await prisma.design.delete({ where: { id: Number(req.params.id) } });
     res.json({ success: true });
@@ -193,7 +199,7 @@ router.delete('/designs/:id', auth, async (req, res) => {
   }
 });
 
-router.post('/plots', auth, async (req, res) => {
+router.post(PLOT_PATHS, auth, async (req, res) => {
   const { plot, priceExtra = 0 } = req.body;
   if (!plot) return res.status(400).json({ error: 'Укажите plot' });
   if (Number.isNaN(Number(priceExtra))) return res.status(400).json({ error: 'Укажите корректный priceExtra' });
@@ -205,7 +211,7 @@ router.post('/plots', auth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка создания сюжета' });
   }
 });
-router.delete('/plots/:id', auth, async (req, res) => {
+router.delete(['/plots/:id', '/prices/plots/:id'], auth, async (req, res) => {
   try {
     await prisma.plot.delete({ where: { id: Number(req.params.id) } });
     res.json({ success: true });
@@ -214,25 +220,62 @@ router.delete('/plots/:id', auth, async (req, res) => {
   }
 });
 
-router.put('/sizes/:id',   auth, async (req, res) => {
+router.put(['/sizes/:id', '/prices/sizes/:id'],   auth, async (req, res) => {
   const { price } = req.body;
   const updated = await prisma.size.update({ where: { id: Number(req.params.id) }, data: { price: Number(price) } });
   res.json(updated);
 });
-router.put('/formats/:id', auth, async (req, res) => {
+router.put(['/formats/:id', '/prices/formats/:id'], auth, async (req, res) => {
   const { priceExtra } = req.body;
   const updated = await prisma.format.update({ where: { id: Number(req.params.id) }, data: { priceExtra: Number(priceExtra) } });
   res.json(updated);
 });
-router.put('/designs/:id', auth, async (req, res) => {
+router.put(['/designs/:id', '/prices/designs/:id'], auth, async (req, res) => {
   const { priceExtra } = req.body;
   const updated = await prisma.design.update({ where: { id: Number(req.params.id) }, data: { priceExtra: Number(priceExtra) } });
   res.json(updated);
 });
-router.put('/plots/:id',   auth, async (req, res) => {
+router.put(['/plots/:id', '/prices/plots/:id'],   auth, async (req, res) => {
   const { priceExtra } = req.body;
   const updated = await prisma.plot.update({ where: { id: Number(req.params.id) }, data: { priceExtra: Number(priceExtra) } });
   res.json(updated);
+});
+
+router.post(DISCOUNT_PATHS, auth, async (req, res) => {
+  const { percent, description } = req.body;
+  if (percent === undefined || description === undefined || description === null || String(description).trim() === '') {
+    return res.status(400).json({ error: 'Укажите percent и description' });
+  }
+  try {
+    const created = await prisma.discount.create({
+      data: { percent: Number(percent), description: String(description).trim() },
+    });
+    res.status(201).json(created);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка создания скидки' });
+  }
+});
+
+router.delete(['/discounts/:id', '/prices/discounts/:id'], auth, async (req, res) => {
+  try {
+    await prisma.discount.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка удаления скидки' });
+  }
+});
+
+router.put(['/discounts/:id', '/prices/discounts/:id'], auth, async (req, res) => {
+  const data = {};
+  if (req.body.percent !== undefined) data.percent = Number(req.body.percent);
+  if (req.body.description !== undefined) data.description = String(req.body.description).trim();
+  try {
+    const updated = await prisma.discount.update({ where: { id: Number(req.params.id) }, data });
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка обновления скидки' });
+  }
 });
 
 module.exports = router;
