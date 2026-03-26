@@ -22,6 +22,17 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+function displayRef(val, preferredKeys = []) {
+  if (!val) return '—';
+  if (typeof val === 'string' || typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    for (const k of preferredKeys) {
+      if (val[k] !== undefined && val[k] !== null) return String(val[k]);
+    }
+  }
+  return '—';
+}
+
 export default function AccountPage() {
   const router          = useRouter();
   const { user, token, ready, logout } = useAuth();
@@ -144,7 +155,9 @@ export default function AccountPage() {
                             #{order.id}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-medium text-on-surface text-sm truncate">{order.size} · {order.format}</div>
+                            <div className="font-medium text-on-surface text-sm truncate">
+                              {displayRef(order.size, ['size', 'name', 'label'])} · {displayRef(order.format, ['format', 'name', 'label'])}
+                            </div>
                             <div className="text-on-surface/40 text-xs mt-0.5">{formatDate(order.createdAt)}</div>
                           </div>
                         </div>
@@ -159,9 +172,9 @@ export default function AccountPage() {
                       {selectedOrder?.id === order.id && (
                         <div className="mt-5 pt-5 border-t border-white/10 grid grid-cols-2 md:grid-cols-3 gap-4 animate-fade-up">
                           {[
-                            ['Размер',     order.size],
-                            ['Оформление', order.format],
-                            ['Обработка',  order.design],
+                            ['Размер',     displayRef(order.size,   ['size', 'name', 'label'])],
+                            ['Оформление', displayRef(order.format, ['format', 'name', 'label'])],
+                            ['Обработка',  displayRef(order.design, ['design', 'name', 'label'])],
                             ['Материал',   order.material || '—'],
                             ['Покрытие',   order.coating  || '—'],
                             ['Статус',     <StatusBadge key="s" status={order.status} />],
