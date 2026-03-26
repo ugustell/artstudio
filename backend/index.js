@@ -1,7 +1,16 @@
 require('dotenv').config();
+const path = require('path');
+
+// Ensure SQLite file DB is stable regardless of process.cwd().
+// When DATABASE_URL is `file:./...` Prisma may resolve relative to current working directory,
+// which can differ between local/dev/prod starts.
+if (process.env.DATABASE_URL && /^file:\.\//.test(process.env.DATABASE_URL)) {
+  const rel = process.env.DATABASE_URL.replace(/^file:\.\//, '');
+  const abs = path.resolve(__dirname, rel);
+  process.env.DATABASE_URL = `file:${abs}`;
+}
 const express = require('express');
 const cors    = require('cors');
-const path    = require('path');
 
 const ordersRouter     = require('./routes/orders');
 const refsRouter       = require('./routes/references');

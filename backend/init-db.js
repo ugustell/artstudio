@@ -1,6 +1,14 @@
 // init-db.js — запускается при каждом старте сервера.
 // Если БД пустая (новый деплой на Railway) — заполняет данными.
 require('dotenv').config();
+const path = require('path');
+
+// Keep SQLite DB path stable regardless of process.cwd().
+if (process.env.DATABASE_URL && /^file:\.\//.test(process.env.DATABASE_URL)) {
+  const rel = process.env.DATABASE_URL.replace(/^file:\.\//, '');
+  const abs = path.resolve(__dirname, rel);
+  process.env.DATABASE_URL = `file:${abs}`;
+}
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
