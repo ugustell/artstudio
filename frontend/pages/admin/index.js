@@ -206,6 +206,7 @@ function PricesModal({ onClose, apiBase, token }) {
   const [activeTab, setActiveTab] = useState('canvasSizes');
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
+  const [newNumber, setNewNumber] = useState('');
 
   const TABS = [
     { id: 'canvasSizes', label: 'Размеры' },
@@ -217,10 +218,10 @@ function PricesModal({ onClose, apiBase, token }) {
 
   // Endpoint mapping
   const ENDPOINT = {
-    canvasSizes: 'canvas-sizes',
-    designTypes: 'design-types',
-    techniques:  'techniques',
-    subjects:    'subjects',
+    canvasSizes: 'sizes',
+    designTypes: 'formats',
+    techniques:  'designs',
+    subjects:    'plots',
     discounts:   'discounts',
   };
 
@@ -233,9 +234,17 @@ function PricesModal({ onClose, apiBase, token }) {
 
   const addItem = async () => {
     if (!newName.trim()) return;
-    const body = activeTab === 'canvasSizes'
-      ? { size: newName }
-      : { name: newName };
+    const num = newNumber === '' ? 0 : Number(newNumber);
+    if (activeTab === 'canvasSizes' && (newNumber === '' || Number.isNaN(num))) return;
+    if (activeTab !== 'discounts' && Number.isNaN(num)) return;
+
+    const body =
+      activeTab === 'canvasSizes' ? { size: newName, price: num } :
+      activeTab === 'designTypes' ? { format: newName, priceExtra: num } :
+      activeTab === 'techniques'  ? { design: newName, priceExtra: num } :
+      activeTab === 'subjects'    ? { plot: newName, priceExtra: num } :
+      { name: newName }; // not used for discounts here
+
     const res = await fetch(`${apiBase}/api/prices/${ENDPOINT[activeTab]}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -244,6 +253,7 @@ function PricesModal({ onClose, apiBase, token }) {
     const created = await res.json();
     setOptions(o => ({ ...o, [activeTab]: [...o[activeTab], created] }));
     setNewName('');
+    setNewNumber('');
   };
 
   const deleteItem = async (id) => {
@@ -257,9 +267,12 @@ function PricesModal({ onClose, apiBase, token }) {
   const currentItems = options[activeTab] || [];
 
   const displayName = (item) => {
-    if (activeTab === 'canvasSizes') return item.size;
-    if (activeTab === 'discounts') return `${item.percent > 0 ? '+' : ''}${item.percent}% — ${item.description}`;
-    return item.name;
+    if (activeTab === 'canvasSizes') return `${item.size} — ${Number(item.price || 0).toLocaleString('ru-RU')} ₽`;
+    if (activeTab === 'designTypes') return `${item.name} ${item.priceExtra ? `(+${Number(item.priceExtra).toLocaleString('ru-RU')} ₽)` : ''}`.trim();
+    if (activeTab === 'techniques')  return `${item.name} ${item.priceExtra ? `(+${Number(item.priceExtra).toLocaleString('ru-RU')} ₽)` : ''}`.trim();
+    if (activeTab === 'subjects')    return `${item.name} ${item.priceExtra ? `(+${Number(item.priceExtra).toLocaleString('ru-RU')} ₽)` : ''}`.trim();
+    if (activeTab === 'discounts')   return `${item.percent > 0 ? '+' : ''}${item.percent}% — ${item.description}`;
+    return item.name || '—';
   };
 
   return (
@@ -304,6 +317,11 @@ function PricesModal({ onClose, apiBase, token }) {
                 <input value={newName} onChange={e => setNewName(e.target.value)}
                   placeholder={activeTab === 'canvasSizes' ? 'Например: 90×120 см' : 'Название...'}
                   className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50"
+                  onKeyDown={e => e.key === 'Enter' && addItem()} />
+                <input value={newNumber} onChange={e => setNewNumber(e.target.value)}
+                  placeholder={activeTab === 'canvasSizes' ? 'Цена (₽)' : 'Надбавка (₽)'}
+                  inputMode="numeric"
+                  className="w-40 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50"
                   onKeyDown={e => e.key === 'Enter' && addItem()} />
                 <button onClick={addItem} className="btn-primary px-4 py-2 text-sm">+</button>
               </div>

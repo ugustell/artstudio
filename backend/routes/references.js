@@ -129,6 +129,91 @@ router.get('/calc', async (req, res) => {
 });
 
 // ── CRUD справочников (только admin) ─────────────────────────────────────────
+router.post('/sizes', auth, async (req, res) => {
+  const { size, price } = req.body;
+  if (!size || price === undefined || price === null || Number.isNaN(Number(price))) {
+    return res.status(400).json({ error: 'Укажите size и price' });
+  }
+  try {
+    const created = await prisma.size.create({ data: { size: String(size), price: Number(price) } });
+    res.status(201).json(created);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка создания размера' });
+  }
+});
+router.delete('/sizes/:id', auth, async (req, res) => {
+  try {
+    await prisma.size.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка удаления размера' });
+  }
+});
+
+router.post('/formats', auth, async (req, res) => {
+  const { format, priceExtra = 0 } = req.body;
+  if (!format) return res.status(400).json({ error: 'Укажите format' });
+  if (Number.isNaN(Number(priceExtra))) return res.status(400).json({ error: 'Укажите корректный priceExtra' });
+  try {
+    const created = await prisma.format.create({ data: { format: String(format), priceExtra: Number(priceExtra) } });
+    res.status(201).json(created);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка создания оформления' });
+  }
+});
+router.delete('/formats/:id', auth, async (req, res) => {
+  try {
+    await prisma.format.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка удаления оформления' });
+  }
+});
+
+router.post('/designs', auth, async (req, res) => {
+  const { design, priceExtra = 0 } = req.body;
+  if (!design) return res.status(400).json({ error: 'Укажите design' });
+  if (Number.isNaN(Number(priceExtra))) return res.status(400).json({ error: 'Укажите корректный priceExtra' });
+  try {
+    const created = await prisma.design.create({ data: { design: String(design), priceExtra: Number(priceExtra) } });
+    res.status(201).json(created);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка создания техники' });
+  }
+});
+router.delete('/designs/:id', auth, async (req, res) => {
+  try {
+    await prisma.design.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка удаления техники' });
+  }
+});
+
+router.post('/plots', auth, async (req, res) => {
+  const { plot, priceExtra = 0 } = req.body;
+  if (!plot) return res.status(400).json({ error: 'Укажите plot' });
+  if (Number.isNaN(Number(priceExtra))) return res.status(400).json({ error: 'Укажите корректный priceExtra' });
+  try {
+    const created = await prisma.plot.create({ data: { plot: String(plot), priceExtra: Number(priceExtra) } });
+    res.status(201).json(created);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка создания сюжета' });
+  }
+});
+router.delete('/plots/:id', auth, async (req, res) => {
+  try {
+    await prisma.plot.delete({ where: { id: Number(req.params.id) } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка удаления сюжета' });
+  }
+});
+
 router.put('/sizes/:id',   auth, async (req, res) => {
   const { price } = req.body;
   const updated = await prisma.size.update({ where: { id: Number(req.params.id) }, data: { price: Number(price) } });
