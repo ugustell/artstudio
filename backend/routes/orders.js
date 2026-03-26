@@ -35,20 +35,23 @@ function mapOrder(o) {
     clientName: o.clientName || o.user?.name || '—',
     photoPaths: JSON.parse(o.photoPaths || '[]'),
     items: (o.items || []).map(item => ({
-      id:           item.id,
-      quantity:     item.quantity,
+      id:       item.id,
+      quantity: item.quantity,
       pricePerUnit: item.priceUnit,
-      total:        item.amount,
+      total:    item.amount,
       price: {
-        canvasSize: o.size   ? { id: o.size.id,   size: o.size.size,     price: o.size.price }            : null,
-        designType: o.format ? { id: o.format.id, name: o.format.format, priceExtra: o.format.priceExtra } : null,
-        technique:  o.design ? { id: o.design.id, name: o.design.design, priceExtra: o.design.priceExtra } : null,
-        subject:    o.plot   ? { id: o.plot.id,   name: o.plot.plot,     priceExtra: o.plot.priceExtra }   : null,
+        canvasSize: o.size   ? o.size.size : null,             // <--- только строка
+        canvasPrice: o.size  ? o.size.price : null,           // при необходимости
+        designType: o.format ? o.format.format : null,
+        designExtra: o.format ? o.format.priceExtra : null,
+        technique:  o.design ? o.design.design : null,
+        techniqueExtra: o.design ? o.design.priceExtra : null,
+        subject:    o.plot   ? o.plot.plot : null,
+        subjectExtra: o.plot ? o.plot.priceExtra : null,
       },
     })),
   };
 }
-
 async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadline }) {
   const qty = Number(quantity) || 1;
   const [size, format, design, plot] = await Promise.all([
