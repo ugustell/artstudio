@@ -92,7 +92,7 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
         userId = decoded.id;
       } catch {}
     }
-
+console.log('IDs:', { sizeId: Number(sizeId), formatId: Number(formatId), designId: Number(designId), plotId: Number(plotId) });
     const order = await prisma.order.create({
       data: {
         clientName, phone, email,
