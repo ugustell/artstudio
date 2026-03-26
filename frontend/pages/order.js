@@ -161,7 +161,16 @@ export default function OrderPage() {
       const res  = await fetch(`${API}/api/orders`, { method: 'POST', body: data, headers });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Ошибка сервера');
-      setSuccess(json);
+      setSuccess({
+        orderId:          json.orderId,
+        totalPrice:       json.totalPrice,
+        prepayment:       json.prepayment,
+        remainder:        json.remainder,
+        surchargePercent: json.surchargePercent,
+        surchargeReason:  json.surchargeReason,
+        discountPercent:  json.discountPercent,
+        discountReason:   json.discountReason,
+      });
     } catch (err) {
       setErrors({ _global: err.message });
     } finally {
