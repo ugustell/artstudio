@@ -151,6 +151,13 @@ export default function OrderPage() {
       data.append('designId',   form.designId);
       data.append('plotId',     form.plotId);
       data.append('quantity',   form.quantity);
+      data.append('items', JSON.stringify([{
+        sizeId: form.sizeId,
+        formatId: form.formatId,
+        designId: form.designId,
+        plotId: form.plotId,
+        quantity: form.quantity,
+      }]));
       data.append('deadline',   form.deadline);
       data.append('prepayment', form.prepayment);
       data.append('comments',   form.comments);
@@ -199,7 +206,7 @@ export default function OrderPage() {
         <div className="glass p-12 rounded-xl text-center max-w-lg w-full animate-fade-up">
           <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-8 text-4xl text-primary">✓</div>
           <h1 className="font-serif text-4xl font-bold text-on-surface mb-4">Заказ принят!</h1>
-          <p className="text-on-surface/60 mb-2">Номер заказа: <span className="text-secondary font-bold">#{success.orderId}</span></p>
+          <p className="text-on-surface/60 mb-2">Номер заказа: <span className="text-secondary font-bold">{success.orderId}</span></p>
           <p className="text-on-surface/60 mb-4">
             Итоговая стоимость: <span className="text-primary font-bold text-2xl">{success.totalPrice?.toLocaleString('ru-RU')} ₽</span>
           </p>

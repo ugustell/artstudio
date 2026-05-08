@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 const links = [
   { href: '/#about',       label: 'О нас'        },
   { href: '/prices',       label: 'Прайс'        },
-  { href: '/faq',          label: 'FAQ'           },
+  { href: '/faq',          label: 'Вопросы'       },
   { href: '/certificates', label: 'Сертификаты'  },
   { href: '/#contacts',    label: 'Контакты'     },
 ];

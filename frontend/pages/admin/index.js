@@ -82,7 +82,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
         <div className="p-8">
           <div className="flex items-start justify-between mb-8">
             <div>
-              <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-1">Заказ #{order.id}</div>
+              <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-1">Заказ {order.id}</div>
               <h2 className="font-serif text-2xl font-bold text-on-surface">{clientName}</h2>
               <div className="text-on-surface/50 text-sm mt-1">{formatDate(order.createdAt)}</div>
             </div>
@@ -404,8 +404,17 @@ function ReportsModal({ onClose, apiBase, token }) {
 
       if (activeReport === 'unfinished') {
         const d = new Date(onDate); d.setHours(23,59,59,999);
-        setResult({ type: 'unfinished', onDate, orders: orders.filter(o =>
-          o.status !== 'delivered' && o.deadline && new Date(o.deadline) <= d) });
+        setResult({
+          type: 'unfinished',
+          onDate,
+          orders: orders.filter(o => {
+            const createdAt = new Date(o.createdAt);
+            if (createdAt > d) return false;
+            if (o.status !== 'delivered') return true;
+            const doneAt = o.issueDate ? new Date(o.issueDate) : createdAt;
+            return doneAt > d;
+          }),
+        });
       }
       if (activeReport === 'accepted') {
         const from = new Date(dateFrom); from.setHours(0,0,0,0);
@@ -620,7 +629,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                         </tr></thead>
                         <tbody>{result.orders.map(o => (
                           <tr key={o.id} className="border-b border-white/5">
-                            <td className="px-3 py-3 text-on-surface font-medium">#{o.id}</td>
+                            <td className="px-3 py-3 text-on-surface font-medium">{o.id}</td>
                             <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
                             <td className="px-3 py-3 text-on-surface/70">{o.deadline || '—'}</td>
                             <td className="px-3 py-3 text-on-surface">{clientName(o)}</td>
@@ -656,7 +665,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                         <tbody>{result.orders.map(o => (
                           <tr key={o.id} className="border-b border-white/5">
                             <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
-                            <td className="px-3 py-3 text-on-surface font-medium">#{o.id}</td>
+                            <td className="px-3 py-3 text-on-surface font-medium">{o.id}</td>
                             <td className="px-3 py-3 text-on-surface">{clientName(o)}</td>
                             <td className="px-3 py-3 text-on-surface/70">{o.user?.email || '—'}</td>
                             <td className="px-3 py-3 text-on-surface/70">{clientPhone(o)}</td>
@@ -692,7 +701,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                           const sizes    = o.items?.map(i => i.price?.canvasSize?.size).filter(Boolean).join(', ') || '—';
                           return (
                             <tr key={o.id} className="border-b border-white/5">
-                              <td className="px-3 py-3 text-on-surface font-medium">#{o.id}</td>
+                              <td className="px-3 py-3 text-on-surface font-medium">{o.id}</td>
                               <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
                               <td className="px-3 py-3 text-on-surface">{clientName(o)}</td>
                               <td className="px-3 py-3 text-on-surface/70">{sizes}</td>
@@ -862,7 +871,7 @@ export default function AdminDashboard() {
                   ) : orders.map((o, i) => (
                     <tr key={o.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer ${i % 2 === 0 ? '' : 'bg-white/[0.01]'}`}
                       onClick={() => setSelectedOrder(o)}>
-                      <td className="px-6 py-4 text-on-surface/40 text-sm font-mono">#{o.id}</td>
+                      <td className="px-6 py-4 text-on-surface/40 text-sm font-mono">{o.id}</td>
                       <td className="px-6 py-4 text-on-surface font-medium text-sm">{o.user?.name || '—'}</td>
                       <td className="px-6 py-4">
                         <div className="text-on-surface/60 text-xs">{o.user?.phone || '—'}</div>
@@ -896,7 +905,7 @@ export default function AdminDashboard() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="font-medium text-on-surface text-sm">{o.user?.name || '—'}</div>
-                      <div className="text-on-surface/40 text-xs mt-0.5">#{o.id} · {formatDate(o.createdAt)}</div>
+                      <div className="text-on-surface/40 text-xs mt-0.5">{o.id} · {formatDate(o.createdAt)}</div>
                     </div>
                     <StatusBadge status={o.status} />
                   </div>

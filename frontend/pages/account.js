@@ -152,7 +152,7 @@ export default function AccountPage() {
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4 min-w-0">
                           <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-on-surface/30 text-sm shrink-0 group-hover:border-secondary/40 transition-colors">
-                            #{order.id}
+                            {order.id}
                           </div>
                           <div className="min-w-0">
                             <div className="font-medium text-on-surface text-sm truncate">

@@ -41,11 +41,10 @@ export default function PricesPage() {
         <div className="max-w-7xl mx-auto px-6 md:px-12">
 
           <div className="mb-16 animate-fade-up">
-            <div className="section-label">Стоимость</div>
             <h1 className="font-serif text-5xl md:text-6xl font-bold tracking-tight text-on-surface">Прайс-лист</h1>
             <p className="text-on-surface/50 mt-4 max-w-xl">
               Базовая цена — по размеру холста. Итоговая стоимость рассчитывается с учётом
-              вида оформления, техники, сюжета и условий заказа.
+              вида оформления, техники, сюжета и условий заказа
             </p>
           </div>
 

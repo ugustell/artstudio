@@ -82,16 +82,75 @@ async function calcPrice({ sizeId, formatId, designId, plotId, quantity, deadlin
   return { priceUnit, qty, surchargePercent, surchargeReason, discountPercent, discountReason, totalPrice };
 }
 
+async function calcMultiItems({ items, deadline }) {
+  const normalized = Array.isArray(items) ? items : [];
+  if (!normalized.length) throw new Error('Добавьте хотя бы одну картину в заказ.');
+
+  const itemResults = [];
+  let grossTotal = 0;
+
+  for (const item of normalized) {
+    const pricing = await calcPrice({
+      sizeId: item.sizeId,
+      formatId: item.formatId,
+      designId: item.designId,
+      plotId: item.plotId,
+      quantity: item.quantity,
+      deadline: '',
+    });
+    itemResults.push(pricing);
+    grossTotal += pricing.priceUnit * pricing.qty;
+  }
+
+  let surchargePercent = 0, surchargeReason = '';
+  if (deadline) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const days  = Math.ceil((new Date(deadline) - today) / 86400000);
+    if      (days < 3)  { surchargePercent = 60; surchargeReason = 'Очень срочный заказ (менее 3 дней)'; }
+    else if (days < 7)  { surchargePercent = 30; surchargeReason = 'Срочный заказ (3–6 дней)'; }
+    else if (days < 14) { surchargePercent = 15; surchargeReason = 'Ускоренный срок (7–13 дней)'; }
+    else if (days >= 30){ surchargePercent = -5; surchargeReason = 'Длительный срок (30+ дней)'; }
+  }
+
+  const totalQty = itemResults.reduce((s, x) => s + x.qty, 0);
+  let discountPercent = 0, discountReason = '';
+  if      (totalQty >= 10) { discountPercent = 20; discountReason = 'Скидка за объём — 10+ картин'; }
+  else if (totalQty >= 5)  { discountPercent = 15; discountReason = 'Скидка за объём — 5–9 картин'; }
+  else if (totalQty >= 3)  { discountPercent = 10; discountReason = 'Скидка за объём — 3–4 картины'; }
+  else if (totalQty >= 2)  { discountPercent =  5; discountReason = 'Скидка за объём — 2 картины'; }
+
+  const surcharge  = Math.max(surchargePercent, 0);
+  const deadline5  = surchargePercent < 0 ? Math.abs(surchargePercent) : 0;
+  const discount   = discountPercent + deadline5;
+  const totalPrice = Math.round(grossTotal * (1 + surcharge / 100) * (1 - discount / 100));
+
+  return { itemResults, totalQty, surchargePercent, surchargeReason, discountPercent, discountReason, totalPrice };
+}
+
 const include = { size: true, format: true, design: true, plot: true, items: true, user: true };
 
 router.post('/', upload.array('photos', 5), async (req, res) => {
   const { clientName, phone, email, sizeId, formatId, designId, plotId,
           quantity, deadline, prepayment, comments } = req.body;
-  if (!clientName || !phone || !email || !sizeId || !formatId || !designId || !plotId) {
+  let parsedItems = [];
+  if (req.body.items) {
+    try {
+      parsedItems = JSON.parse(req.body.items);
+    } catch {
+      return res.status(400).json({ error: 'Неверный формат списка картин' });
+    }
+  }
+
+  if (!parsedItems.length && sizeId && formatId && designId && plotId) {
+    parsedItems = [{ sizeId, formatId, designId, plotId, quantity: Number(quantity) || 1 }];
+  }
+
+  if (!clientName || !phone || !email || !parsedItems.length) {
     return res.status(400).json({ error: 'Заполните все обязательные поля' });
   }
   try {
-    const pricing    = await calcPrice({ sizeId, formatId, designId, plotId, quantity, deadline });
+    const firstItem  = parsedItems[0];
+    const pricing    = await calcMultiItems({ items: parsedItems, deadline });
     const photoPaths = (req.files || []).map(f => `/uploads/${f.filename}`);
     const prepayVal  = Math.max(0, Number(prepayment) || 0);
     let userId = null;
@@ -117,19 +176,19 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
         photoPaths:       JSON.stringify(photoPaths),
         status:           'new',
         userId,
-        sizeId:   Number(sizeId),
-        formatId: Number(formatId),
-        designId: Number(designId),
-        plotId:   Number(plotId),
+        sizeId:   Number(firstItem.sizeId),
+        formatId: Number(firstItem.formatId),
+        designId: Number(firstItem.designId),
+        plotId:   Number(firstItem.plotId),
       },
     });
-    await prisma.orderItem.create({
-      data: {
-        orderId:   order.id,
-        quantity:  pricing.qty,
-        priceUnit: pricing.priceUnit,
-        amount:    pricing.priceUnit * pricing.qty,
-      },
+    await prisma.orderItem.createMany({
+      data: pricing.itemResults.map((item) => ({
+        orderId: order.id,
+        quantity: item.qty,
+        priceUnit: item.priceUnit,
+        amount: item.priceUnit * item.qty,
+      })),
     });
     res.status(201).json({
       orderId:          order.id,
