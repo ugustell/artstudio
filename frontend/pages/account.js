@@ -14,7 +14,7 @@ const STATUS_MAP = {
 };
 
 function StatusBadge({ status }) {
-  const s = STATUS_MAP[status] || { label: status, color: 'text-on-surface/50', bg: 'bg-white/5' };
+  const s = STATUS_MAP[status] || { label: status, color: 'text-on-surface/50', bg: 'bg-on-surface/5' };
   return <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${s.bg} ${s.color}`}>{s.label}</span>;
 }
 
@@ -33,6 +33,113 @@ function displayRef(val, preferredKeys = []) {
   return '—';
 }
 
+function ReceiptModal({ order, user, onClose }) {
+  const fmt   = d => d ? new Date(d).toLocaleDateString('ru-RU') : '—';
+  const money = n => Number(n || 0).toLocaleString('ru-RU') + ' ₽';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-surface border border-on-surface/15 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}>
+        <div className="p-8">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="font-serif text-xl font-bold text-on-surface">КВИТАНЦИЯ №{order.id}</div>
+              <div className="text-on-surface/50 text-sm mt-0.5">от {fmt(order.createdAt)}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={() => window.print()} className="text-sm px-4 py-2 bg-secondary/15 text-secondary rounded-lg hover:bg-secondary/25 transition-colors">
+                🖨 Печать
+              </button>
+              <button onClick={onClose} className="text-on-surface/40 hover:text-on-surface text-2xl leading-none">×</button>
+            </div>
+          </div>
+
+          {/* Клиент */}
+          <div className="grid grid-cols-2 gap-3 mb-6 text-sm">
+            {[
+              ['ФИО',    user?.name  || order.clientName || '—'],
+              ['Телефон', user?.phone || order.phone     || '—'],
+              ['Email',   user?.email || order.email     || '—'],
+              ['Срок исполнения', order.deadline || '—'],
+            ].map(([l, v]) => (
+              <div key={l} className="bg-on-surface/5 rounded-lg p-3">
+                <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-0.5">{l}</div>
+                <div className="text-on-surface font-medium">{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Состав заказа */}
+          <div className="overflow-x-auto mb-5">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-on-surface/20">
+                  {['Размер', 'Техника/оформление', 'Сюжет', 'Кол-во', 'Цена за ед.', 'Итого'].map(h => (
+                    <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs font-semibold">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {order.items?.length > 0 ? order.items.map((item, i) => (
+                  <tr key={i} className="border-b border-on-surface/10">
+                    <td className="px-3 py-3 text-on-surface">{displayRef(order.size, ['size'])}</td>
+                    <td className="px-3 py-3 text-on-surface">{displayRef(order.design, ['design', 'name'])}</td>
+                    <td className="px-3 py-3 text-on-surface">{displayRef(order.plot, ['plot', 'name'])}</td>
+                    <td className="px-3 py-3 text-on-surface">{item.quantity}</td>
+                    <td className="px-3 py-3 text-on-surface">{money(item.priceUnit)}</td>
+                    <td className="px-3 py-3 font-bold text-secondary">{money(item.amount)}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-4 text-on-surface/40 text-center">
+                      {displayRef(order.size, ['size'])} · {displayRef(order.format, ['format'])} · {displayRef(order.design, ['design'])}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Скидка/надбавка */}
+          {(order.discountPercent > 0 || order.surchargePercent > 0) && (
+            <div className="mb-4 text-sm">
+              {order.discountPercent > 0 && (
+                <div className="text-green-600">− Скидка {order.discountPercent}% — {order.discountReason}</div>
+              )}
+              {order.surchargePercent > 0 && (
+                <div className="text-secondary">+ Надбавка {order.surchargePercent}% — {order.surchargeReason}</div>
+              )}
+            </div>
+          )}
+
+          {/* Итого */}
+          <div className="border-t border-on-surface/20 pt-4 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface/50">Итого к оплате:</span>
+              <span className="font-black text-2xl text-primary font-serif">{money(order.totalPrice)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-on-surface/50">Аванс:</span>
+              <span className="text-green-600 font-bold">{money(order.prepayment || 0)}</span>
+            </div>
+            <div className="flex justify-between text-sm border-t border-on-surface/10 pt-2">
+              <span className="text-on-surface/50">Остаток при получении:</span>
+              <span className="text-secondary font-bold">{money((order.totalPrice || 0) - (order.prepayment || 0))}</span>
+            </div>
+          </div>
+
+          {order.comments && (
+            <div className="mt-4 text-xs text-on-surface/40 border-t border-on-surface/10 pt-3">
+              Примечание: {order.comments}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AccountPage() {
   const router          = useRouter();
   const { user, token, ready, logout } = useAuth();
@@ -42,6 +149,7 @@ export default function AccountPage() {
   const [profile, setProfile]   = useState({ name: '', phone: '', address: '' });
   const [saveMsg, setSaveMsg]   = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [receiptOrder, setReceiptOrder]   = useState(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -151,7 +259,7 @@ export default function AccountPage() {
                       {/* Компактная строка */}
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-on-surface/30 text-sm shrink-0 group-hover:border-secondary/40 transition-colors">
+                          <div className="w-10 h-10 rounded-full border border-on-surface/20 flex items-center justify-center text-on-surface/30 text-sm shrink-0 group-hover:border-secondary/40 transition-colors">
                             {order.id}
                           </div>
                           <div className="min-w-0">
@@ -170,7 +278,7 @@ export default function AccountPage() {
 
                       {/* Раскрытые детали */}
                       {selectedOrder?.id === order.id && (
-                        <div className="mt-5 pt-5 border-t border-white/10 grid grid-cols-2 md:grid-cols-3 gap-4 animate-fade-up">
+                        <div className="mt-5 pt-5 border-t border-on-surface/20 grid grid-cols-2 md:grid-cols-3 gap-4 animate-fade-up">
                           {[
                             ['Размер',     displayRef(order.size,   ['size', 'name', 'label'])],
                             ['Оформление', displayRef(order.format, ['format', 'name', 'label'])],
@@ -188,6 +296,12 @@ export default function AccountPage() {
                               <div className="text-sm text-on-surface/60">{order.comments}</div>
                             </div>
                           )}
+                          <div className="col-span-2 md:col-span-3">
+                            <button onClick={e => { e.stopPropagation(); setReceiptOrder(order); }}
+                              className="text-xs px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 transition-colors rounded-lg font-medium">
+                              🖨 Квитанция
+                            </button>
+                          </div>
                           {/* Прогресс */}
                           <div className="col-span-2 md:col-span-3">
                             <div className="text-xs text-on-surface/30 uppercase tracking-widest mb-3">Прогресс заказа</div>
@@ -200,12 +314,12 @@ export default function AccountPage() {
                                 return (
                                   <div key={s} className="flex items-center flex-1">
                                     <div className="flex flex-col items-center">
-                                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs transition-all ${isActive ? 'border-secondary bg-secondary/20 text-secondary' : 'border-white/20 text-on-surface/20'}`}>
+                                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs transition-all ${isActive ? 'border-secondary bg-secondary/20 text-secondary' : 'border-on-surface/25 text-on-surface/20'}`}>
                                         {i < current ? '✓' : i + 1}
                                       </div>
                                       <div className={`text-xs mt-1 whitespace-nowrap ${isActive ? 'text-secondary' : 'text-on-surface/30'}`}>{labels[i]}</div>
                                     </div>
-                                    {i < arr.length - 1 && <div className={`h-px flex-1 mx-1 mb-4 ${i < current ? 'bg-secondary' : 'bg-white/10'}`} />}
+                                    {i < arr.length - 1 && <div className={`h-px flex-1 mx-1 mb-4 ${i < current ? 'bg-secondary' : 'bg-on-surface/10'}`} />}
                                   </div>
                                 );
                               })}
@@ -226,7 +340,7 @@ export default function AccountPage() {
               <h2 className="font-serif text-2xl font-bold text-on-surface mb-8">Данные профиля</h2>
               <form onSubmit={saveProfile} className="space-y-6">
                 <div>
-                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Имя и фамилия</label>
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">ФИО</label>
                   <input type="text" value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))}
                     className="input-field" />
                 </div>
@@ -242,7 +356,7 @@ export default function AccountPage() {
                 </div>
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Email</label>
-                  <div className="py-3 text-on-surface/40 text-sm border-b border-white/10">{user.email}</div>
+                  <div className="py-3 text-on-surface/40 text-sm border-b border-on-surface/20">{user.email}</div>
                   <p className="text-xs text-on-surface/30 mt-1">Email изменить нельзя</p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -255,6 +369,9 @@ export default function AccountPage() {
         </div>
       </div>
       <Footer />
+      {receiptOrder && (
+        <ReceiptModal order={receiptOrder} user={user} onClose={() => setReceiptOrder(null)} />
+      )}
     </>
   );
 }

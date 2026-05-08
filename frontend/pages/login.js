@@ -51,8 +51,7 @@ export default function LoginPage() {
     <>
       <Head><title>{tab === 'login' ? 'Вход' : 'Регистрация'} — ArtStudio</title></Head>
       <Navbar />
-      <div className="min-h-screen flex items-center justify-center px-6 pt-24 pb-16"
-        style={{ background: 'radial-gradient(ellipse at 50% 30%, #1e2a42 0%, #0b1326 70%)' }}>
+      <div className="min-h-screen flex items-center justify-center px-6 pt-24 pb-16 bg-surface">
         <div className="w-full max-w-md animate-fade-up">
           <div className="text-center mb-10">
             <h1 className="font-serif text-4xl font-black text-on-surface">
@@ -95,9 +94,9 @@ export default function LoginPage() {
             ) : (
               <form onSubmit={handleRegister} className="space-y-5">
                 <div>
-                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Имя и фамилия</label>
+                  <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">ФИО</label>
                   <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
-                    placeholder="Иванова Марина" className="input-field" />
+                    placeholder="Иванова Марина Ивановна" className="input-field" />
                 </div>
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Телефон</label>

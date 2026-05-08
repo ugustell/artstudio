@@ -9,7 +9,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 // ─── Вспомогательные компоненты ───────────────────────────────────────────────
 function PriceRow({ label, value, color = 'text-on-surface/60', bold = false }) {
   return (
-    <div className={`flex justify-between items-center py-1 ${bold ? 'border-t border-white/10 pt-3 mt-1' : ''}`}>
+    <div className={`flex justify-between items-center py-1 ${bold ? 'border-t border-on-surface/20 pt-3 mt-1' : ''}`}>
       <span className={`text-sm ${color}`}>{label}</span>
       <span className={`text-sm font-${bold ? 'bold' : 'medium'} ${color}`}>{value}</span>
     </div>
@@ -21,7 +21,7 @@ function Badge({ color, text }) {
     green:  'bg-green-500/15 text-green-400 border-green-500/30',
     red:    'bg-red-500/15 text-red-400 border-red-500/30',
     yellow: 'bg-secondary/15 text-secondary border-secondary/30',
-    gray:   'bg-white/5 text-on-surface/40 border-white/10',
+    gray:   'bg-on-surface/5 text-on-surface/40 border-on-surface/20',
   };
   return (
     <span className={`inline-block text-xs px-3 py-1 rounded-full border ${map[color] || map.gray}`}>
@@ -43,7 +43,7 @@ export default function OrderPage() {
 
   // Форма — храним ID, а не строки
   const [form, setForm] = useState({
-    clientName: '', phone: '', email: '',
+    clientName: '', phone: '', email: '', deliveryAddress: '',
     sizeId: '', formatId: '', designId: '', plotId: '',
     deadline: '', quantity: 1, comments: '', prepayment: 0,
   });
@@ -84,9 +84,10 @@ export default function OrderPage() {
     if (user) {
       setForm(prev => ({
         ...prev,
-        clientName: user.name  || prev.clientName,
-        phone:      user.phone || prev.phone,
-        email:      user.email || prev.email,
+        clientName:      user.name    || prev.clientName,
+        phone:           user.phone   || prev.phone,
+        email:           user.email   || prev.email,
+        deliveryAddress: user.address || prev.deliveryAddress,
       }));
     }
   }, [user]);
@@ -120,9 +121,10 @@ export default function OrderPage() {
 
   const validate = () => {
     const e = {};
-    if (!form.clientName.trim()) e.clientName = 'Введите имя';
-    if (!form.phone.trim())      e.phone      = 'Введите телефон';
+    if (!form.clientName.trim())     e.clientName     = 'Введите ФИО';
+    if (!form.phone.trim())          e.phone          = 'Введите телефон';
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) e.email = 'Введите корректный email';
+    if (!form.deliveryAddress.trim()) e.deliveryAddress = 'Укажите адрес доставки';
     if (!form.sizeId)   e.sizeId   = 'Выберите размер';
     if (!form.formatId) e.formatId = 'Выберите оформление';
     if (!form.designId) e.designId = 'Выберите технику';
@@ -146,6 +148,8 @@ export default function OrderPage() {
       data.append('clientName', form.clientName);
       data.append('phone',      form.phone);
       data.append('email',      form.email);
+      const addressPrefix = form.deliveryAddress ? `Адрес доставки: ${form.deliveryAddress}\n` : '';
+      data.append('comments', addressPrefix + (form.comments || ''));
       data.append('sizeId',     form.sizeId);
       data.append('formatId',   form.formatId);
       data.append('designId',   form.designId);
@@ -160,7 +164,6 @@ export default function OrderPage() {
       }]));
       data.append('deadline',   form.deadline);
       data.append('prepayment', form.prepayment);
-      data.append('comments',   form.comments);
       files.forEach(f => data.append('photos', f));
 
       const headers = {};
@@ -211,7 +214,7 @@ export default function OrderPage() {
             Итоговая стоимость: <span className="text-primary font-bold text-2xl">{success.totalPrice?.toLocaleString('ru-RU')} ₽</span>
           </p>
           {success.prepayment > 0 && (
-            <div className="bg-white/5 rounded-xl p-4 mb-4 text-sm space-y-1">
+            <div className="bg-on-surface/5 rounded-xl p-4 mb-4 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-on-surface/50">Аванс:</span>
                 <span className="text-green-400 font-bold">{success.prepayment?.toLocaleString('ru-RU')} ₽</span>
@@ -275,9 +278,9 @@ export default function OrderPage() {
               </h2>
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Имя и фамилия *</label>
+                  <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">ФИО *</label>
                   <input type="text" value={form.clientName} onChange={e => set('clientName', e.target.value)}
-                    placeholder="Иванова Марина" className="input-field" />
+                    placeholder="Иванова Марина Ивановна" className="input-field" />
                   {errors.clientName && <p className="text-red-400 text-xs mt-1">{errors.clientName}</p>}
                 </div>
                 <div>
@@ -291,6 +294,15 @@ export default function OrderPage() {
                   <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
                     placeholder="you@example.com" className="input-field" />
                   {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Адрес доставки *</label>
+                  <input type="text" value={form.deliveryAddress} onChange={e => set('deliveryAddress', e.target.value)}
+                    placeholder="г. Тольятти, ул. Ленина, 5, кв. 10" className="input-field" />
+                  {errors.deliveryAddress && <p className="text-red-400 text-xs mt-1">{errors.deliveryAddress}</p>}
+                  {!form.deliveryAddress && user?.address === '' && (
+                    <p className="text-on-surface/40 text-xs mt-1">Можно сохранить в <a href="/account" className="text-primary hover:underline">профиле</a>, чтобы не вводить каждый раз</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -402,10 +414,10 @@ export default function OrderPage() {
                   <label className="text-xs text-on-surface/50 uppercase tracking-widest block mb-2">Количество картин</label>
                   <div className="flex items-center gap-4 border-b border-on-surface/20 pb-3">
                     <button type="button" onClick={() => set('quantity', Math.max(1, qty - 1))}
-                      className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-on-surface/60 hover:border-primary hover:text-primary transition-all text-xl">−</button>
+                      className="w-9 h-9 rounded-full border border-on-surface/25 flex items-center justify-center text-on-surface/60 hover:border-primary hover:text-primary transition-all text-xl">−</button>
                     <span className="text-on-surface text-2xl font-serif font-bold w-8 text-center">{qty}</span>
                     <button type="button" onClick={() => set('quantity', qty + 1)}
-                      className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-on-surface/60 hover:border-primary hover:text-primary transition-all text-xl">+</button>
+                      className="w-9 h-9 rounded-full border border-on-surface/25 flex items-center justify-center text-on-surface/60 hover:border-primary hover:text-primary transition-all text-xl">+</button>
                   </div>
                   {calc && calc.discountPercent > 0 && (
                     <div className="mt-3">
@@ -423,7 +435,7 @@ export default function OrderPage() {
 
               {/* Калькулятор */}
               {calc && form.sizeId && (
-                <div className="mt-8 bg-white/[0.03] rounded-xl p-6 border border-white/5">
+                <div className="mt-8 bg-on-surface/5 rounded-xl p-6 border border-white/5">
                   <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-4">Расчёт стоимости</div>
                   {calcLoading ? (
                     <div className="text-on-surface/30 text-sm">Пересчитываем...</div>
@@ -454,7 +466,7 @@ export default function OrderPage() {
                       )}
                     </div>
                   )}
-                  <div className="border-t border-white/10 mt-4 pt-4 flex items-center justify-between">
+                  <div className="border-t border-on-surface/20 mt-4 pt-4 flex items-center justify-between">
                     <span className="text-on-surface/60 text-sm">Итого</span>
                     <span className="text-secondary font-black text-3xl font-serif">
                       {calc.totalPrice?.toLocaleString('ru-RU')} ₽
@@ -490,7 +502,7 @@ export default function OrderPage() {
                       <span>Аванс:</span>
                       <span className="font-bold">− {Number(form.prepayment || 0).toLocaleString('ru-RU')} ₽</span>
                     </div>
-                    <div className="flex justify-between border-t border-white/10 pt-2 mt-1">
+                    <div className="flex justify-between border-t border-on-surface/20 pt-2 mt-1">
                       <span className="text-on-surface/50">Остаток при получении:</span>
                       <span className="text-secondary font-bold">
                         {(calc.totalPrice - Number(form.prepayment || 0)).toLocaleString('ru-RU')} ₽
@@ -519,7 +531,7 @@ export default function OrderPage() {
               <p className="text-on-surface/40 text-sm mb-5">Загрузите фото, эскиз или референс — что художник должен использовать как основу</p>
               <label className="block cursor-pointer">
                 <div className={`border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300
-                  ${files.length > 0 ? 'border-primary/50 bg-primary/5' : 'border-white/10 hover:border-primary/30 hover:bg-white/[0.02]'}`}>
+                  ${files.length > 0 ? 'border-primary/50 bg-primary/5' : 'border-on-surface/20 hover:border-primary/30 hover:bg-white/[0.02]'}`}>
                   {files.length > 0 ? (
                     <div>
                       <div className="text-primary text-3xl mb-3">✓</div>

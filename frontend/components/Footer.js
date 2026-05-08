@@ -10,7 +10,7 @@ export default function Footer() {
               Art<span className="text-primary">Studio</span>
             </div>
             <p className="text-on-surface/50 text-sm leading-relaxed max-w-xs">
-              Картины на холсте под заказ — Giclée-печать высокого разрешения, архивные материалы, бережная упаковка.
+              Картины на заказ от профессиональных художников — масло, акварель, акрил. Любой сюжет, любой размер, ручная работа.
             </p>
           </div>
           <div>

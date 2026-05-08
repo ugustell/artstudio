@@ -33,8 +33,7 @@ export default function AdminLogin() {
   return (
     <>
       <Head><title>Вход — ArtStudio Admin</title></Head>
-      <div className="min-h-screen flex items-center justify-center px-6"
-        style={{ background: 'radial-gradient(ellipse at 50% 50%, #1e2a42 0%, #0b1326 70%)' }}>
+      <div className="min-h-screen flex items-center justify-center px-6 bg-surface">
         <div className="w-full max-w-md animate-fade-up">
           {/* Logo */}
           <div className="text-center mb-12">

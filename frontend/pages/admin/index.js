@@ -10,7 +10,7 @@ const STATUS_MAP = {
 };
 
 function StatusBadge({ status }) {
-  const s = STATUS_MAP[status] || { label: status, color: 'bg-white/10 text-on-surface/50' };
+  const s = STATUS_MAP[status] || { label: status, color: 'bg-on-surface/10 text-on-surface/50' };
   return <span className={`status-badge ${s.color}`}>{s.label}</span>;
 }
 
@@ -99,7 +99,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
               ['Остаток',  `${((order.totalPrice || 0) - (order.prepayment || 0)).toLocaleString('ru-RU')} ₽`],
               ['Срок',     order.deadline || '—'],
             ].map(([label, val]) => (
-              <div key={label} className="bg-white/5 rounded-lg p-4">
+              <div key={label} className="bg-on-surface/5 rounded-lg p-4">
                 <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-1">{label}</div>
                 <div className="text-on-surface font-medium text-sm">{val}</div>
               </div>
@@ -114,7 +114,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
                 {order.items.map((item, i) => {
                   const p = item.price || {};
                   return (
-                    <div key={i} className="bg-white/5 rounded-lg p-4 text-sm">
+                    <div key={i} className="bg-on-surface/5 rounded-lg p-4 text-sm">
                       <div className="text-on-surface font-medium mb-1">
                         {p.canvasSize?.size} · {p.technique?.name}
                       </div>
@@ -134,7 +134,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
 
           {/* Скидка */}
           {order.discount && (
-            <div className="mb-6 bg-white/5 rounded-lg p-4">
+            <div className="mb-6 bg-on-surface/5 rounded-lg p-4">
               <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-1">Скидка / надбавка</div>
               <div className={`text-sm font-medium ${order.discount.percent < 0 ? 'text-green-400' : 'text-secondary'}`}>
                 {order.discount.percent > 0 ? '+' : ''}{order.discount.percent}% — {order.discount.description}
@@ -144,7 +144,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
 
           {/* Комментарий */}
           {order.comments && (
-            <div className="bg-white/5 rounded-lg p-4 mb-6">
+            <div className="bg-on-surface/5 rounded-lg p-4 mb-6">
               <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-2">Комментарий</div>
               <p className="text-on-surface/70 text-sm leading-relaxed">{order.comments}</p>
             </div>
@@ -158,7 +158,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
                 {photos.map((p, i) => (
                   <a key={i} href={`${process.env.NEXT_PUBLIC_API_URL}${p}`} target="_blank" rel="noreferrer">
                     <img src={`${process.env.NEXT_PUBLIC_API_URL}${p}`} alt={`Фото ${i+1}`}
-                      className="w-24 h-24 object-cover rounded-lg border border-white/10 hover:border-primary/50 transition-colors" />
+                      className="w-24 h-24 object-cover rounded-lg border border-on-surface/15 hover:border-primary/50 transition-colors" />
                   </a>
                 ))}
               </div>
@@ -179,7 +179,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
               {Object.entries(STATUS_MAP).map(([key, val]) => (
                 <button key={key} onClick={() => setStatus(key)}
                   className={`py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 text-left
-                    ${status === key ? `${val.color} border border-current` : 'bg-white/5 text-on-surface/50 hover:bg-white/10'}`}>
+                    ${status === key ? `${val.color} border border-current` : 'bg-on-surface/5 text-on-surface/50 hover:bg-on-surface/10'}`}>
                   {val.label}
                 </button>
               ))}
@@ -326,7 +326,7 @@ function PricesModal({ onClose, apiBase, token }) {
             {TABS.map(t => (
               <button key={t.id} onClick={() => { setActiveTab(t.id); setNewName(''); setNewNumber(''); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === t.id ? 'bg-secondary text-surface' : 'bg-white/5 text-on-surface/60 hover:bg-white/10'
+                  activeTab === t.id ? 'bg-secondary text-surface' : 'bg-on-surface/5 text-on-surface/60 hover:bg-on-surface/10'
                 }`}>{t.label}</button>
             ))}
           </div>
@@ -334,36 +334,31 @@ function PricesModal({ onClose, apiBase, token }) {
           {loading ? <div className="text-center py-8 text-on-surface/40">Загрузка...</div> : (
             <div className="space-y-2 mb-6 max-h-72 overflow-y-auto">
               {currentItems.map(item => (
-                <div key={item.id} className="flex items-center gap-3 bg-white/5 rounded-lg px-4 py-3">
+                <div key={item.id} className="flex items-center gap-3 bg-on-surface/5 rounded-lg px-4 py-3">
                   <span className="text-on-surface/70 text-sm flex-1">{displayName(item)}</span>
-                  {activeTab !== 'discounts' && (
-                    <button onClick={() => deleteItem(item.id)} className="text-on-surface/30 hover:text-red-400 text-xs transition-colors">✕</button>
-                  )}
+                  <button onClick={() => deleteItem(item.id)} className="text-on-surface/30 hover:text-red-400 text-xs transition-colors">✕</button>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Добавить — только для простых справочников */}
-          {activeTab !== 'discounts' && (
-            <div className="border-t border-white/10 pt-5">
-              <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-3">
-                Добавить {TABS.find(t => t.id === activeTab)?.label.toLowerCase()}
-              </div>
-              <div className="flex gap-2">
-                <input value={newName} onChange={e => setNewName(e.target.value)}
-                  placeholder={activeTab === 'canvasSizes' ? 'Например: 90×120 см' : 'Название...'}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50"
-                  onKeyDown={e => e.key === 'Enter' && addItem()} />
-                <input value={newNumber} onChange={e => setNewNumber(e.target.value)}
-                  placeholder={activeTab === 'canvasSizes' ? 'Цена (₽)' : 'Надбавка (₽)'}
-                  inputMode="numeric"
-                  className="w-40 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50"
-                  onKeyDown={e => e.key === 'Enter' && addItem()} />
-                <button onClick={addItem} className="btn-primary px-4 py-2 text-sm">+</button>
-              </div>
+          <div className="border-t border-on-surface/15 pt-5">
+            <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-3">
+              Добавить {TABS.find(t => t.id === activeTab)?.label.toLowerCase()}
             </div>
-          )}
+            <div className="flex gap-2">
+              <input value={newName} onChange={e => setNewName(e.target.value)}
+                placeholder={activeTab === 'canvasSizes' ? 'Например: 90×120 см' : activeTab === 'discounts' ? 'Описание (напр. Скидка за количество)' : 'Название...'}
+                className="flex-1 bg-on-surface/5 border border-on-surface/15 rounded-lg px-3 py-2 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50"
+                onKeyDown={e => e.key === 'Enter' && addItem()} />
+              <input value={newNumber} onChange={e => setNewNumber(e.target.value)}
+                placeholder={activeTab === 'canvasSizes' ? 'Цена (₽)' : activeTab === 'discounts' ? '% (минус = скидка)' : 'Надбавка (₽)'}
+                inputMode="numeric"
+                className="w-44 bg-on-surface/5 border border-on-surface/15 rounded-lg px-3 py-2 text-sm text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50"
+                onKeyDown={e => e.key === 'Enter' && addItem()} />
+              <button onClick={addItem} disabled={saving} className="btn-primary px-4 py-2 text-sm disabled:opacity-50">+</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -465,12 +460,12 @@ function ReportsModal({ onClose, apiBase, token }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#1a1a2e] border border-white/10 rounded-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-surface border border-on-surface/15 rounded-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-serif text-2xl font-bold text-on-surface">Отчёты</h2>
             <div className="flex gap-3">
-              {result && <button onClick={() => window.print()} className="text-sm px-4 py-2 bg-secondary/20 text-secondary rounded-lg">🖨 Печать</button>}
+              {result?.type === 'receipt' && <button onClick={() => window.print()} className="text-sm px-4 py-2 bg-secondary/20 text-secondary rounded-lg">🖨 Печать</button>}
               <button onClick={onClose} className="text-on-surface/40 hover:text-on-surface text-2xl leading-none">×</button>
             </div>
           </div>
@@ -479,12 +474,12 @@ function ReportsModal({ onClose, apiBase, token }) {
             {TABS.map(t => (
               <button key={t.id} onClick={() => { setActiveReport(t.id); setResult(null); setError(''); }}
                 className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  activeReport === t.id ? 'bg-secondary text-surface' : 'bg-white/5 text-on-surface/60 hover:bg-white/10'
+                  activeReport === t.id ? 'bg-secondary text-surface' : 'bg-on-surface/5 text-on-surface/60 hover:bg-on-surface/10'
                 }`}>{t.label}</button>
             ))}
           </div>
 
-          <div className="bg-white/5 rounded-xl p-5 mb-6">
+          <div className="bg-on-surface/5 rounded-xl p-5 mb-6">
             {activeReport === 'receipt' && (
               <div className="flex gap-3 items-end">
                 <div className="flex-1">
@@ -550,7 +545,7 @@ function ReportsModal({ onClose, apiBase, token }) {
               {result.type === 'receipt' && (() => {
                 const o = result.order;
                 return (
-                  <div className="bg-white/5 rounded-xl p-6">
+                  <div className="bg-on-surface/5 rounded-xl p-6">
                     <div className="text-center mb-6">
                       <div className="font-serif text-xl font-bold text-on-surface">КВИТАНЦИЯ №{o.id}</div>
                       <div className="text-on-surface/50 text-sm">от {fmt(o.createdAt)}</div>
@@ -565,7 +560,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                     <div className="overflow-x-auto mb-4">
                       <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr className="border-b border-white/20">
+                          <tr className="border-b border-on-surface/20">
                             {['№', 'Размер', 'Техника', 'Оформление', 'Сюжет', 'Кол-во', 'Цена за ед.', 'Итого'].map(h => (
                               <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs font-semibold">{h}</th>
                             ))}
@@ -575,7 +570,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                           {o.items?.map((item, i) => {
                             const p = item.price || {};
                             return (
-                              <tr key={i} className="border-b border-white/10">
+                              <tr key={i} className="border-b border-on-surface/15">
                                 <td className="px-3 py-3 text-on-surface/70">{i+1}</td>
                                 <td className="px-3 py-3 text-on-surface">{p.canvasSize?.size}</td>
                                 <td className="px-3 py-3 text-on-surface">{p.technique?.name}</td>
@@ -595,7 +590,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                         {o.discount.percent > 0 ? 'Надбавка' : 'Скидка'}: {o.discount.description} ({o.discount.percent > 0 ? '+' : ''}{o.discount.percent}%)
                       </div>
                     )}
-                    <div className="flex justify-between items-center border-t border-white/20 pt-4">
+                    <div className="flex justify-between items-center border-t border-on-surface/20 pt-4">
                       <span className="text-on-surface/50 text-sm">Итого:</span>
                       <span className="font-black text-2xl text-primary font-serif">{money(o.totalPrice)}</span>
                     </div>
@@ -614,19 +609,19 @@ function ReportsModal({ onClose, apiBase, token }) {
 
               {/* В-02: Невыполненные */}
               {result.type === 'unfinished' && (
-                <div className="bg-white/5 rounded-xl p-6">
+                <div className="bg-on-surface/5 rounded-xl p-6">
                   <div className="font-serif text-lg font-bold text-on-surface mb-1">Список невыполненных заказов</div>
                   <div className="text-on-surface/40 text-sm mb-5">на дату: {fmt(result.onDate)}</div>
                   {result.orders.length === 0 ? <div className="text-on-surface/30 text-center py-8">Нет невыполненных заказов</div> : (
                     <>
                       <table className="w-full text-sm">
-                        <thead><tr className="border-b border-white/20">
+                        <thead><tr className="border-b border-on-surface/20">
                           {['№ заказа','Дата заказа','Дата исполнения','ФИО клиента','Телефон','Сумма'].map(h => (
                             <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs">{h}</th>
                           ))}
                         </tr></thead>
                         <tbody>{result.orders.map(o => (
-                          <tr key={o.id} className="border-b border-white/5">
+                          <tr key={o.id} className="border-b border-on-surface/10">
                             <td className="px-3 py-3 text-on-surface font-medium">{o.id}</td>
                             <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
                             <td className="px-3 py-3 text-on-surface/70">{o.deadline || '—'}</td>
@@ -636,7 +631,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                           </tr>
                         ))}</tbody>
                       </table>
-                      <div className="flex justify-between border-t border-white/20 pt-4 mt-2">
+                      <div className="flex justify-between border-t border-on-surface/20 pt-4 mt-2">
                         <span className="text-on-surface/50 text-sm">Итого ({result.orders.length}):</span>
                         <span className="font-black text-xl text-primary font-serif">{money(total(result.orders))}</span>
                       </div>
@@ -647,7 +642,7 @@ function ReportsModal({ onClose, apiBase, token }) {
 
               {/* В-03 и В-04 — одинаковая таблица */}
               {['accepted','completed'].includes(result.type) && (
-                <div className="bg-white/5 rounded-xl p-6">
+                <div className="bg-on-surface/5 rounded-xl p-6">
                   <div className="font-serif text-lg font-bold text-on-surface mb-1">
                     {result.type === 'accepted' ? 'Принятые заказы за период' : 'Выполненные заказы за период'}
                   </div>
@@ -655,13 +650,13 @@ function ReportsModal({ onClose, apiBase, token }) {
                   {result.orders.length === 0 ? <div className="text-on-surface/30 text-center py-8">Нет заказов за период</div> : (
                     <>
                       <table className="w-full text-sm">
-                        <thead><tr className="border-b border-white/20">
+                        <thead><tr className="border-b border-on-surface/20">
                           {['Дата заказа','№ заказа','ФИО клиента','Email','Телефон','Сумма'].map(h => (
                             <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs">{h}</th>
                           ))}
                         </tr></thead>
                         <tbody>{result.orders.map(o => (
-                          <tr key={o.id} className="border-b border-white/5">
+                          <tr key={o.id} className="border-b border-on-surface/10">
                             <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
                             <td className="px-3 py-3 text-on-surface font-medium">{o.id}</td>
                             <td className="px-3 py-3 text-on-surface">{clientName(o)}</td>
@@ -671,7 +666,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                           </tr>
                         ))}</tbody>
                       </table>
-                      <div className="flex justify-between border-t border-white/20 pt-4 mt-2">
+                      <div className="flex justify-between border-t border-on-surface/20 pt-4 mt-2">
                         <span className="text-on-surface/50 text-sm">Итого ({result.orders.length}):</span>
                         <span className="font-black text-xl text-primary font-serif">{money(total(result.orders))}</span>
                       </div>
@@ -682,14 +677,14 @@ function ReportsModal({ onClose, apiBase, token }) {
 
               {/* В-05: По технике */}
               {result.type === 'byTechnique' && (
-                <div className="bg-white/5 rounded-xl p-6">
+                <div className="bg-on-surface/5 rounded-xl p-6">
                   <div className="font-serif text-lg font-bold text-on-surface mb-1">По технике исполнения</div>
                   <div className="text-on-surface/40 text-sm mb-1">Техника: <span className="text-on-surface">{result.technique}</span></div>
                   <div className="text-on-surface/40 text-sm mb-5">с {fmt(result.dateFrom)} по {fmt(result.dateTo)}</div>
                   {result.orders.length === 0 ? <div className="text-on-surface/30 text-center py-8">Нет заказов с такой техникой</div> : (
                     <>
                       <table className="w-full text-sm">
-                        <thead><tr className="border-b border-white/20">
+                        <thead><tr className="border-b border-on-surface/20">
                           {['№ заказа','Дата заказа','ФИО клиента','Размер холста','Количество'].map(h => (
                             <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs">{h}</th>
                           ))}
@@ -698,7 +693,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                           const totalQty = o.items?.reduce((s, i) => s + i.quantity, 0) || 1;
                           const sizes    = o.items?.map(i => i.price?.canvasSize?.size).filter(Boolean).join(', ') || '—';
                           return (
-                            <tr key={o.id} className="border-b border-white/5">
+                            <tr key={o.id} className="border-b border-on-surface/10">
                               <td className="px-3 py-3 text-on-surface font-medium">{o.id}</td>
                               <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
                               <td className="px-3 py-3 text-on-surface">{clientName(o)}</td>
@@ -708,7 +703,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                           );
                         })}</tbody>
                       </table>
-                      <div className="flex justify-between border-t border-white/20 pt-4 mt-2">
+                      <div className="flex justify-between border-t border-on-surface/20 pt-4 mt-2">
                         <span className="text-on-surface/50 text-sm">
                           Итого картин: {result.orders.reduce((s, o) => s + (o.items?.reduce((q, i) => q + i.quantity, 0) || 1), 0)} шт. ({result.orders.length} заказов)
                         </span>
@@ -799,7 +794,7 @@ export default function AdminDashboard() {
       <Head><title>Панель управления — ArtStudio</title></Head>
 
       <div className="min-h-screen bg-surface">
-        <header className="bg-surface-container border-b border-white/5 px-6 md:px-12 py-4 flex items-center justify-between sticky top-0 z-40">
+        <header className="bg-surface-container border-b border-on-surface/10 px-6 md:px-12 py-4 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-4">
             <span className="font-serif text-xl font-black italic text-secondary">Art<span className="text-primary">Studio</span></span>
             <span className="hidden md:block text-on-surface/30 text-sm">/ Панель управления</span>
@@ -834,7 +829,7 @@ export default function AdminDashboard() {
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
               placeholder="Поиск по имени, телефону, email..."
-              className="flex-1 bg-surface-container border border-white/10 rounded-lg px-4 py-3 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50 transition-colors text-sm" />
+              className="flex-1 bg-surface-container border border-on-surface/15 rounded-lg px-4 py-3 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary/50 transition-colors text-sm" />
             <div className="flex gap-2 flex-wrap">
               {[['all','Все'],['new','Новые'],['in_progress','В работе'],['ready','Готовы'],['delivered','Доставлены']].map(([v,l]) => (
                 <button key={v} onClick={() => { setStatusFilter(v); setPage(1); }}
@@ -855,7 +850,7 @@ export default function AdminDashboard() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/5">
+                  <tr className="border-b border-on-surface/10">
                     {['#','Клиент','Контакты','Заказ','Сумма','Статус','Дата',''].map(h => (
                       <th key={h} className="px-6 py-4 text-left text-xs text-on-surface/40 uppercase tracking-widest font-medium">{h}</th>
                     ))}
@@ -867,7 +862,7 @@ export default function AdminDashboard() {
                   ) : orders.length === 0 ? (
                     <tr><td colSpan={8} className="px-6 py-16 text-center text-on-surface/40">Заказы не найдены</td></tr>
                   ) : orders.map((o, i) => (
-                    <tr key={o.id} className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer ${i % 2 === 0 ? '' : 'bg-white/[0.01]'}`}
+                    <tr key={o.id} className={`border-b border-on-surface/10 hover:bg-on-surface/[0.02] transition-colors cursor-pointer ${i % 2 === 0 ? '' : 'bg-on-surface/[0.01]'}`}
                       onClick={() => setSelectedOrder(o)}>
                       <td className="px-6 py-4 text-on-surface/40 text-sm font-mono">{o.id}</td>
                       <td className="px-6 py-4 text-on-surface font-medium text-sm">{o.user?.name || '—'}</td>
@@ -899,7 +894,7 @@ export default function AdminDashboard() {
               ) : orders.length === 0 ? (
                 <div className="p-8 text-center text-on-surface/40">Заказы не найдены</div>
               ) : orders.map(o => (
-                <div key={o.id} className="p-5 hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => setSelectedOrder(o)}>
+                <div key={o.id} className="p-5 hover:bg-on-surface/[0.02] cursor-pointer transition-colors" onClick={() => setSelectedOrder(o)}>
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="font-medium text-on-surface text-sm">{o.user?.name || '—'}</div>
