@@ -178,7 +178,13 @@ export default function OrderPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      setTimeout(() => {
+        const firstErr = document.querySelector('p.text-red-400, .text-red-400.text-xs');
+        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+      return;
+    }
     setSending(true);
     try {
       const data = new FormData();
@@ -583,8 +589,10 @@ export default function OrderPage() {
                 className="w-full bg-transparent border-b border-on-surface/20 py-3 text-on-surface placeholder-on-surface/30 focus:outline-none focus:border-secondary transition-colors resize-none text-sm" />
             </div>
 
-            {errors._global && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">⚠ {errors._global}</div>
+            {(errors._global || Object.keys(errors).some(k => k !== '_global')) && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
+                ⚠ {errors._global || 'Заполните все обязательные поля — ошибки отмечены выше'}
+              </div>
             )}
 
             <button type="submit" disabled={sending}

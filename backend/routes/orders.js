@@ -34,18 +34,24 @@ function mapOrder(o) {
     email:      o.email || o.user?.email || '—',
     clientName: o.clientName || o.user?.name || '—',
     photoPaths: JSON.parse(o.photoPaths || '[]'),
-    items: (o.items || []).map(item => ({
-      id:           item.id,
-      quantity:     item.quantity,
-      pricePerUnit: item.priceUnit,
-      total:        item.amount,
-      price: {
-        canvasSize: o.size   ? { id: o.size.id,   size: o.size.size,     price: o.size.price }            : null,
-        designType: o.format ? { id: o.format.id, name: o.format.format, priceExtra: o.format.priceExtra } : null,
-        technique:  o.design ? { id: o.design.id, name: o.design.design, priceExtra: o.design.priceExtra } : null,
-        subject:    o.plot   ? { id: o.plot.id,   name: o.plot.plot,     priceExtra: o.plot.priceExtra }   : null,
-      },
-    })),
+    items: (o.items || []).map(item => {
+      const sz  = item.size   || o.size;
+      const fmt = item.format || o.format;
+      const dsn = item.design || o.design;
+      const plt = item.plot   || o.plot;
+      return {
+        id:           item.id,
+        quantity:     item.quantity,
+        pricePerUnit: item.priceUnit,
+        total:        item.amount,
+        price: {
+          canvasSize: sz  ? { id: sz.id,  size: sz.size,    price: sz.price }           : null,
+          designType: fmt ? { id: fmt.id, name: fmt.format, priceExtra: fmt.priceExtra } : null,
+          technique:  dsn ? { id: dsn.id, name: dsn.design, priceExtra: dsn.priceExtra } : null,
+          subject:    plt ? { id: plt.id, name: plt.plot,   priceExtra: plt.priceExtra } : null,
+        },
+      };
+    }),
   };
 }
 
@@ -127,7 +133,10 @@ async function calcMultiItems({ items, deadline }) {
   return { itemResults, totalQty, surchargePercent, surchargeReason, discountPercent, discountReason, totalPrice };
 }
 
-const include = { size: true, format: true, design: true, plot: true, items: true, user: true };
+const include = {
+  size: true, format: true, design: true, plot: true, user: true,
+  items: { include: { size: true, format: true, design: true, plot: true } },
+};
 
 router.post('/', upload.array('photos', 5), async (req, res) => {
   const { clientName, phone, email, sizeId, formatId, designId, plotId,
@@ -183,11 +192,15 @@ router.post('/', upload.array('photos', 5), async (req, res) => {
       },
     });
     await prisma.orderItem.createMany({
-      data: pricing.itemResults.map((item) => ({
-        orderId: order.id,
-        quantity: item.qty,
-        priceUnit: item.priceUnit,
-        amount: item.priceUnit * item.qty,
+      data: parsedItems.map((item, i) => ({
+        orderId:  order.id,
+        quantity: pricing.itemResults[i].qty,
+        priceUnit: pricing.itemResults[i].priceUnit,
+        amount:   pricing.itemResults[i].priceUnit * pricing.itemResults[i].qty,
+        sizeId:   Number(item.sizeId)   || null,
+        formatId: Number(item.formatId) || null,
+        designId: Number(item.designId) || null,
+        plotId:   Number(item.plotId)   || null,
       })),
     });
     res.status(201).json({

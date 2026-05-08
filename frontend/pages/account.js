@@ -278,18 +278,51 @@ export default function AccountPage() {
 
                       {/* Раскрытые детали */}
                       {selectedOrder?.id === order.id && (
-                        <div className="mt-5 pt-5 border-t border-on-surface/20 grid grid-cols-2 md:grid-cols-3 gap-4 animate-fade-up">
-                          {[
-                            ['Размер',     displayRef(order.size,   ['size', 'name', 'label'])],
-                            ['Оформление', displayRef(order.format, ['format', 'name', 'label'])],
-                            ['Обработка',  displayRef(order.design, ['design', 'name', 'label'])],
-                            ['Статус',     <StatusBadge key="s" status={order.status} />],
-                          ].map(([label, val]) => (
-                            <div key={label}>
-                              <div className="text-xs text-on-surface/30 uppercase tracking-widest mb-1">{label}</div>
-                              <div className="text-sm text-on-surface/80">{val}</div>
+                        <div className="mt-5 pt-5 border-t border-on-surface/20 animate-fade-up">
+                          {/* Позиции заказа */}
+                          {order.items?.length > 0 ? (
+                            <div className="mb-4">
+                              <div className="text-xs text-on-surface/30 uppercase tracking-widest mb-2">Позиции заказа</div>
+                              <div className="space-y-2">
+                                {order.items.map((item, i) => (
+                                  <div key={item.id || i} className="bg-on-surface/5 rounded-lg p-3 flex items-start justify-between gap-3 text-sm">
+                                    <div className="min-w-0">
+                                      <div className="text-on-surface font-medium truncate">
+                                        {item.price?.canvasSize?.size || '—'}
+                                        {item.price?.technique?.name ? ` · ${item.price.technique.name}` : ''}
+                                      </div>
+                                      <div className="text-on-surface/50 text-xs mt-0.5">
+                                        {[item.price?.designType?.name, item.price?.subject?.name].filter(Boolean).join(' · ')}
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <div className="text-on-surface/50 text-xs">{item.quantity} шт. × {item.pricePerUnit?.toLocaleString('ru-RU')} ₽</div>
+                                      <div className="text-secondary font-bold">{item.total?.toLocaleString('ru-RU')} ₽</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ))}
+                          ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                              {[
+                                ['Размер',     displayRef(order.size,   ['size', 'name', 'label'])],
+                                ['Оформление', displayRef(order.format, ['format', 'name', 'label'])],
+                                ['Обработка',  displayRef(order.design, ['design', 'name', 'label'])],
+                              ].map(([label, val]) => (
+                                <div key={label}>
+                                  <div className="text-xs text-on-surface/30 uppercase tracking-widest mb-1">{label}</div>
+                                  <div className="text-sm text-on-surface/80">{val}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                              <div className="text-xs text-on-surface/30 uppercase tracking-widest mb-1">Статус</div>
+                              <div className="text-sm"><StatusBadge status={order.status} /></div>
+                            </div>
                           {order.comments && (
                             <div className="col-span-2 md:col-span-3">
                               <div className="text-xs text-on-surface/30 uppercase tracking-widest mb-1">Комментарий</div>
@@ -325,6 +358,7 @@ export default function AccountPage() {
                               })}
                             </div>
                           </div>
+                          </div>{/* end grid */}
                         </div>
                       )}
                     </div>

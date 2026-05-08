@@ -10,37 +10,41 @@ datasource db {
 // ─── Справочники ──────────────────────────────────────────────────────────────
 
 model Size {
-  id      Int     @id @default(autoincrement())
-  size    String  @unique          // "40×50 см"
-  price   Float                    // базовая цена за этот размер
+  id      Int         @id @default(autoincrement())
+  size    String      @unique
+  price   Float
   orders  Order[]
+  items   OrderItem[]
 
   @@map("sizes")
 }
 
 model Format {
-  id         Int     @id @default(autoincrement())
-  format     String  @unique       // "Холст на подрамнике"
-  priceExtra Float   @default(0)  @map("price_extra")  // надбавка к базовой цене
+  id         Int         @id @default(autoincrement())
+  format     String      @unique
+  priceExtra Float       @default(0)  @map("price_extra")
   orders     Order[]
+  items      OrderItem[]
 
   @@map("formats")
 }
 
 model Design {
-  id         Int     @id @default(autoincrement())
-  design     String  @unique       // "Масло — портрет"
-  priceExtra Float   @default(0)  @map("price_extra")
+  id         Int         @id @default(autoincrement())
+  design     String      @unique
+  priceExtra Float       @default(0)  @map("price_extra")
   orders     Order[]
+  items      OrderItem[]
 
   @@map("designs")
 }
 
 model Plot {
-  id         Int     @id @default(autoincrement())
-  plot       String  @unique       // "Пейзаж"
-  priceExtra Float   @default(0)  @map("price_extra")
+  id         Int         @id @default(autoincrement())
+  plot       String      @unique
+  priceExtra Float       @default(0)  @map("price_extra")
   orders     Order[]
+  items      OrderItem[]
 
   @@map("plots")
 }
@@ -111,13 +115,22 @@ model Order {
 // ─── Картины в заказе (несколько позиций) ─────────────────────────────────────
 
 model OrderItem {
-  id         Int    @id @default(autoincrement())
-  orderId    Int    @map("order_id")
-  quantity   Int    @default(1)
-  priceUnit  Float  @map("price_unit")  // цена за единицу на момент заказа
-  amount     Float                       // quantity × priceUnit
+  id         Int     @id @default(autoincrement())
+  orderId    Int     @map("order_id")
+  quantity   Int     @default(1)
+  priceUnit  Float   @map("price_unit")
+  amount     Float
 
-  order      Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sizeId     Int?    @map("size_id")
+  formatId   Int?    @map("format_id")
+  designId   Int?    @map("design_id")
+  plotId     Int?    @map("plot_id")
+
+  order      Order   @relation(fields: [orderId],   references: [id], onDelete: Cascade)
+  size       Size?   @relation(fields: [sizeId],    references: [id])
+  format     Format? @relation(fields: [formatId],  references: [id])
+  design     Design? @relation(fields: [designId],  references: [id])
+  plot       Plot?   @relation(fields: [plotId],    references: [id])
 
   @@map("order_items")
 }
