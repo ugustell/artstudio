@@ -83,12 +83,12 @@ function ReceiptModal({ order, user, onClose }) {
               <tbody>
                 {order.items?.length > 0 ? order.items.map((item, i) => (
                   <tr key={i} className="border-b border-on-surface/10">
-                    <td className="px-3 py-3 text-on-surface">{displayRef(order.size, ['size'])}</td>
-                    <td className="px-3 py-3 text-on-surface">{displayRef(order.design, ['design', 'name'])}</td>
-                    <td className="px-3 py-3 text-on-surface">{displayRef(order.plot, ['plot', 'name'])}</td>
+                    <td className="px-3 py-3 text-on-surface">{item.price?.canvasSize?.size || '—'}</td>
+                    <td className="px-3 py-3 text-on-surface">{[item.price?.technique?.name, item.price?.designType?.name].filter(Boolean).join(' / ') || '—'}</td>
+                    <td className="px-3 py-3 text-on-surface">{item.price?.subject?.name || '—'}</td>
                     <td className="px-3 py-3 text-on-surface">{item.quantity}</td>
-                    <td className="px-3 py-3 text-on-surface">{money(item.priceUnit)}</td>
-                    <td className="px-3 py-3 font-bold text-secondary">{money(item.amount)}</td>
+                    <td className="px-3 py-3 text-on-surface">{money(item.pricePerUnit)}</td>
+                    <td className="px-3 py-3 font-bold text-secondary">{money(item.total)}</td>
                   </tr>
                 )) : (
                   <tr>
@@ -293,7 +293,7 @@ export default function AccountPage() {
                           {order.comments && (
                             <div className="col-span-2 md:col-span-3">
                               <div className="text-xs text-on-surface/30 uppercase tracking-widest mb-1">Комментарий</div>
-                              <div className="text-sm text-on-surface/60">{order.comments}</div>
+                              <div className="text-sm text-on-surface/60 whitespace-pre-wrap">{order.comments}</div>
                             </div>
                           )}
                           <div className="col-span-2 md:col-span-3">
@@ -347,7 +347,7 @@ export default function AccountPage() {
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Телефон</label>
                   <input type="tel" value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
-                    className="input-field" />
+                    maxLength={12} className="input-field" />
                 </div>
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Адрес</label>

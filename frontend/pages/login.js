@@ -101,7 +101,7 @@ export default function LoginPage() {
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Телефон</label>
                   <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)}
-                    placeholder="+7 900 000-00-00" className="input-field" />
+                    placeholder="+7 900 000-00-00" maxLength={12} className="input-field" />
                 </div>
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Email</label>

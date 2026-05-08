@@ -146,7 +146,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
           {order.comments && (
             <div className="bg-on-surface/5 rounded-lg p-4 mb-6">
               <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-2">Комментарий</div>
-              <p className="text-on-surface/70 text-sm leading-relaxed">{order.comments}</p>
+              <p className="text-on-surface/70 text-sm leading-relaxed whitespace-pre-wrap">{order.comments}</p>
             </div>
           )}
 
@@ -190,7 +190,7 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
             <button onClick={save} disabled={saving} className="btn-primary flex-1 justify-center disabled:opacity-50">
               {saving ? 'Сохраняем...' : 'Сохранить статус'}
             </button>
-            <button onClick={del} className="px-4 py-3 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium">
+            <button onClick={del} className="px-4 py-3 rounded border border-red-400/60 bg-red-500/10 text-red-500 hover:bg-red-500/25 hover:border-red-400 transition-colors text-sm font-semibold">
               Удалить
             </button>
           </div>
@@ -616,7 +616,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                     <>
                       <table className="w-full text-sm">
                         <thead><tr className="border-b border-on-surface/20">
-                          {['№ заказа','Дата заказа','Дата исполнения','ФИО клиента','Телефон','Сумма'].map(h => (
+                          {['№ заказа','Дата заказа','Срок (желаемый)','ФИО клиента','Телефон','Сумма'].map(h => (
                             <th key={h} className="text-left px-3 py-2 text-on-surface/40 text-xs">{h}</th>
                           ))}
                         </tr></thead>
@@ -888,7 +888,7 @@ export default function AdminDashboard() {
               </table>
             </div>
 
-            <div className="md:hidden divide-y divide-white/5">
+            <div className="md:hidden divide-y divide-on-surface/10">
               {loading ? (
                 <div className="p-8 text-center text-on-surface/40">Загрузка...</div>
               ) : orders.length === 0 ? (

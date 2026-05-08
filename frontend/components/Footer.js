@@ -10,7 +10,7 @@ export default function Footer() {
               Art<span className="text-primary">Studio</span>
             </div>
             <p className="text-on-surface/50 text-sm leading-relaxed max-w-xs">
-              Картины на заказ от профессиональных художников — масло, акварель, акрил. Любой сюжет, любой размер, ручная работа.
+              Картины на заказ от художника — масло, акварель, акрил. Любой сюжет и размер, каждая работа создаётся вручную.
             </p>
           </div>
           <div>
