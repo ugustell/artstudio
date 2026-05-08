@@ -39,9 +39,9 @@ function OrderModal({ order, onClose, onStatusChange, onDelete, apiBase, token }
   const [issueDate, setIssueDate] = useState(order.issueDate || '');
   const [saving,    setSaving]    = useState(false);
 
-  const clientName = order.user?.name  || '—';
-  const phone      = order.user?.phone || '—';
-  const email      = order.user?.email || '—';
+  const clientName = order.clientName || order.user?.name  || '—';
+  const phone      = order.phone      || order.user?.phone || '—';
+  const email      = order.email      || order.user?.email || '—';
   const photos     = Array.isArray(order.photoPaths) ? order.photoPaths : [];
 
   // Первая позиция для отображения параметров
@@ -553,7 +553,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                     <div className="grid md:grid-cols-2 gap-4 mb-6 text-sm">
                       <div><span className="text-on-surface/40">ФИО клиента:</span> <span className="text-on-surface font-medium">{clientName(o)}</span></div>
                       <div><span className="text-on-surface/40">Телефон:</span> <span className="text-on-surface font-medium">{clientPhone(o)}</span></div>
-                      <div><span className="text-on-surface/40">Email:</span> <span className="text-on-surface font-medium">{o.user?.email || '—'}</span></div>
+                      <div><span className="text-on-surface/40">Email:</span> <span className="text-on-surface font-medium">{o.email || o.user?.email || '—'}</span></div>
                       <div><span className="text-on-surface/40">Дата исполнения:</span> <span className="text-on-surface font-medium">{o.deadline || '—'}</span></div>
                     </div>
                     {/* Таблица позиций */}
@@ -660,7 +660,7 @@ function ReportsModal({ onClose, apiBase, token }) {
                             <td className="px-3 py-3 text-on-surface/70">{fmt(o.createdAt)}</td>
                             <td className="px-3 py-3 text-on-surface font-medium">{o.id}</td>
                             <td className="px-3 py-3 text-on-surface">{clientName(o)}</td>
-                            <td className="px-3 py-3 text-on-surface/70">{o.user?.email || '—'}</td>
+                            <td className="px-3 py-3 text-on-surface/70">{o.email || o.user?.email || '—'}</td>
                             <td className="px-3 py-3 text-on-surface/70">{clientPhone(o)}</td>
                             <td className="px-3 py-3 text-secondary font-bold">{money(o.totalPrice)}</td>
                           </tr>
@@ -865,10 +865,10 @@ export default function AdminDashboard() {
                     <tr key={o.id} className={`border-b border-on-surface/10 hover:bg-on-surface/[0.02] transition-colors cursor-pointer ${i % 2 === 0 ? '' : 'bg-on-surface/[0.01]'}`}
                       onClick={() => setSelectedOrder(o)}>
                       <td className="px-6 py-4 text-on-surface/40 text-sm font-mono">{o.id}</td>
-                      <td className="px-6 py-4 text-on-surface font-medium text-sm">{o.user?.name || '—'}</td>
+                      <td className="px-6 py-4 text-on-surface font-medium text-sm">{o.clientName || o.user?.name || '—'}</td>
                       <td className="px-6 py-4">
-                        <div className="text-on-surface/60 text-xs">{o.user?.phone || '—'}</div>
-                        <div className="text-on-surface/40 text-xs">{o.user?.email || '—'}</div>
+                        <div className="text-on-surface/60 text-xs">{o.phone || o.user?.phone || '—'}</div>
+                        <div className="text-on-surface/40 text-xs">{o.email || o.email || o.user?.email || '—'}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-on-surface/70 text-xs">{orderSummary(o)}</div>
@@ -897,7 +897,7 @@ export default function AdminDashboard() {
                 <div key={o.id} className="p-5 hover:bg-on-surface/[0.02] cursor-pointer transition-colors" onClick={() => setSelectedOrder(o)}>
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-medium text-on-surface text-sm">{o.user?.name || '—'}</div>
+                      <div className="font-medium text-on-surface text-sm">{o.clientName || o.user?.name || '—'}</div>
                       <div className="text-on-surface/40 text-xs mt-0.5">{o.id} · {formatDate(o.createdAt)}</div>
                     </div>
                     <StatusBadge status={o.status} />

@@ -93,7 +93,7 @@ export default function Home() {
               </span>
             </h1>
             <p className="text-on-surface/60 text-xl leading-relaxed mb-12 max-w-xl animate-fade-up" style={{ animationDelay: '200ms' }}>
-              Каждую работу мы создаём вручную и с вниманием к вашим пожеланиям.
+              Каждую картину я пишу вручную — с нуля и с вниманием к вашим пожеланиям.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 animate-fade-up" style={{ animationDelay: '300ms' }}>
               <Link href="/order" className="btn-primary text-base">Заказать картину →</Link>
@@ -125,18 +125,18 @@ export default function Home() {
                 </div>
                 <div className="glass absolute -bottom-8 -right-8 p-6 rounded-lg hidden lg:block max-w-[220px]">
                   <div className="text-4xl font-serif font-black text-primary mb-1">2019</div>
-                  <div className="text-xs text-on-surface/50 leading-relaxed">Пишем картины на заказ с 2019 года. Более 500 работ в частных коллекциях</div>
+                  <div className="text-xs text-on-surface/50 leading-relaxed">Пишу картины на заказ с 2019 года. Более 500 работ в частных коллекциях</div>
                 </div>
               </div>
             </FadeIn>
             <FadeIn delay={150}>
               <div className="section-label">01 / О мастерской</div>
               <h2 className="font-serif text-5xl font-bold tracking-tight mb-8 leading-tight text-on-surface">
-                Настоящая живопись, созданная для вас
+                Настоящая живопись от художника — для вас
               </h2>
               <div className="space-y-5 text-on-surface/55 text-lg leading-relaxed">
-                <p>ArtStudio — это художественная мастерская, где профессиональные художники пишут картины вручную по вашему заказу. Мы не занимаемся печатью — каждое полотно это уникальная авторская работа.</p>
-                <p>Работаем в разных техниках: масло, акварель, акрил, гуашь, пастель, уголь, карандаш. Беремся за любые сюжеты — от камерного портрета до большого пейзажа для офиса.</p>
+                <p>ArtStudio — это моя художественная мастерская. Я пишу картины вручную по вашему заказу — без печати, каждое полотно уникальная авторская работа.</p>
+                <p>Работаю в разных техниках: масло, акварель, акрил, гуашь, пастель, уголь, карандаш. Берусь за любые сюжеты — от камерного портрета до большого пейзажа для офиса.</p>
               </div>
               <div className="mt-10 flex flex-wrap gap-4">
                 <Link href="/order" className="btn-primary">Заказать картину</Link>
@@ -151,8 +151,8 @@ export default function Home() {
       <section className="py-32 bg-surface-container">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <FadeIn className="text-center mb-20">
-            <div className="section-label">02 / Почему мы</div>
-            <h2 className="font-serif text-5xl font-bold tracking-tight text-on-surface">Что отличает нашу мастерскую</h2>
+            <div className="section-label">02 / Почему я</div>
+            <h2 className="font-serif text-5xl font-bold tracking-tight text-on-surface">Что отличает мою мастерскую</h2>
           </FadeIn>
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((f, i) => (
@@ -264,8 +264,8 @@ export default function Home() {
           </FadeIn>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { icon: '◈', color: 'text-primary',   title: 'Упаковка',  desc: 'Картина оборачивается в защитную плёнку, пузырчатую упаковку и помещается в жёсткий картонный короб с угловыми накладками.' },
-              { icon: '◉', color: 'text-secondary',  title: 'По России', desc: 'Отправляем через СДЭК или Почту России. Доставка 2–7 дней. Трек-номер сообщаем в день отправки.' },
+              { icon: '◈', color: 'text-primary',   title: 'Упаковка',  desc: 'Я оборачиваю картину в защитную плёнку, пузырчатую упаковку и помещаю в жёсткий картонный короб с угловыми накладками.' },
+              { icon: '◉', color: 'text-secondary',  title: 'По России', desc: 'Отправляю через СДЭК или Почту России. Доставка 2–7 дней. Трек-номер сообщу в день отправки.' },
               { icon: '◎', color: 'text-tertiary',   title: 'Самовывоз', desc: 'Бесплатный самовывоз из мастерской в Тольятти. Адрес и часы работы — в разделе Контакты.' },
             ].map((d, i) => (
               <FadeIn key={d.title} delay={i * 100}>
