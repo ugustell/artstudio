@@ -137,7 +137,6 @@ export default function Home() {
               <div className="space-y-5 text-on-surface/55 text-lg leading-relaxed">
                 <p>ArtStudio — это художественная мастерская, где профессиональные художники пишут картины вручную по вашему заказу. Мы не занимаемся печатью — каждое полотно это уникальная авторская работа.</p>
                 <p>Работаем в разных техниках: масло, акварель, акрил, гуашь, пастель, уголь, карандаш. Беремся за любые сюжеты — от камерного портрета до большого пейзажа для офиса.</p>
-                <p>Перед началом работы художник присылает эскиз на согласование. Вы вносите любые правки — и только после вашего одобрения начинается написание картины.</p>
               </div>
               <div className="mt-10 flex flex-wrap gap-4">
                 <Link href="/order" className="btn-primary">Заказать картину</Link>
@@ -210,8 +209,8 @@ export default function Home() {
             ].map((item, i) => (
               <FadeIn key={item.t} delay={i * 60}>
                 <div className="glass p-6 rounded-lg h-full hover:border-primary/20 transition-all duration-300">
-                  <div className={`font-serif text-lg font-bold mb-2 ${item.c}`}>{item.t}</div>
-                  <p className="text-on-surface/40 text-xs leading-relaxed">{item.d}</p>
+                  <div className={`font-serif text-xl font-bold mb-3 ${item.c}`}>{item.t}</div>
+                  <p className="text-on-surface/65 text-sm leading-relaxed">{item.d}</p>
                 </div>
               </FadeIn>
             ))}
