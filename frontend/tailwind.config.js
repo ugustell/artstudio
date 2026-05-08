@@ -5,14 +5,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary:    '#ffb4a5',
-        secondary:  '#e9c349',
-        tertiary:   '#d8bafa',
-        surface:    '#55647f',
-        'surface-container': '#667590',
-        'surface-high':      '#7785a1',
-        'on-surface':        '#eef3ff',
-        'on-primary':        '#611205',
+        primary:    '#C49240',
+        secondary:  '#E8C87A',
+        tertiary:   '#8B6B3D',
+        surface:    '#1E1610',
+        'surface-container': '#2C2016',
+        'surface-high':      '#3A2C1C',
+        'on-surface':        '#F0E0C0',
+        'on-primary':        '#160900',
       },
       fontFamily: {
         serif:  ['Noto Serif', 'serif'],

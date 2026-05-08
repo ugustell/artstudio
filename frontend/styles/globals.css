@@ -12,9 +12,9 @@
 
 @layer components {
   .glass {
-    background: rgba(255,255,255,0.04);
+    background: rgba(255, 200, 120, 0.04);
     backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid rgba(196, 146, 64, 0.12);
   }
   .btn-primary {
     @apply inline-flex items-center gap-2 px-8 py-4 bg-primary text-on-primary font-bold rounded-sm
@@ -38,6 +38,6 @@
 
 /* Scrollbar */
 ::-webkit-scrollbar       { width: 6px; }
-::-webkit-scrollbar-track { background: #55647f; }
-::-webkit-scrollbar-thumb { background: #7f90b0; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #ffb4a5; }
+::-webkit-scrollbar-track { background: #1E1610; }
+::-webkit-scrollbar-thumb { background: #6B4F2E; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #C49240; }
