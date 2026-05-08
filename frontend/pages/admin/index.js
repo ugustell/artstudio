@@ -410,9 +410,7 @@ function ReportsModal({ onClose, apiBase, token }) {
           orders: orders.filter(o => {
             const createdAt = new Date(o.createdAt);
             if (createdAt > d) return false;
-            if (o.status !== 'delivered') return true;
-            const doneAt = o.issueDate ? new Date(o.issueDate) : createdAt;
-            return doneAt > d;
+            return o.status !== 'delivered';
           }),
         });
       }

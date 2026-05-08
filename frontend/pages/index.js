@@ -75,7 +75,7 @@ export default function Home() {
 
       {/* ═══ HERO ═══════════════════════════════════════════════════════════ */}
       <section className="relative min-h-screen flex items-center pt-24 overflow-hidden"
-        style={{ background: 'radial-gradient(ellipse at 70% 40%, #3b5278 0%, #15223b 60%)' }}>
+        style={{ background: 'radial-gradient(ellipse at 70% 40%, #b8ccff 0%, #799bf2 60%)' }}>
         <div className="absolute top-24 right-[8%] w-56 h-72 bg-surface-container border border-white/10 rotate-6 animate-float rounded-lg overflow-hidden hidden lg:block opacity-60">
           <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&q=80" alt="" className="w-full h-full object-cover" />
         </div>
@@ -93,7 +93,6 @@ export default function Home() {
               </span>
             </h1>
             <p className="text-on-surface/60 text-xl leading-relaxed mb-12 max-w-xl animate-fade-up" style={{ animationDelay: '200ms' }}>
-              Портреты, пейзажи, натюрморты и абстракции — в масле, акварели, акриле или пастели.
               Каждую работу мы создаём вручную и с вниманием к вашим пожеланиям.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 animate-fade-up" style={{ animationDelay: '300ms' }}>
