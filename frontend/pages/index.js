@@ -75,11 +75,11 @@ export default function Home() {
 
       {/* ═══ HERO ═══════════════════════════════════════════════════════════ */}
       <section className="relative min-h-screen flex items-center pt-24 overflow-hidden"
-        style={{ background: 'radial-gradient(ellipse at 70% 38%, rgba(170,186,216,0.55) 0%, rgba(85,100,127,0.94) 58%)' }}>
-        <div className="absolute top-24 right-[8%] w-56 h-72 bg-surface-container border border-white/10 rotate-6 animate-float rounded-lg overflow-hidden hidden lg:block opacity-60">
+        style={{ background: 'radial-gradient(ellipse at 65% 30%, rgba(184,148,68,0.12) 0%, #F1ECE0 55%)' }}>
+        <div className="absolute top-24 right-[8%] w-56 h-72 bg-surface-container border border-on-surface/10 rotate-6 animate-float rounded-lg overflow-hidden hidden lg:block opacity-70">
           <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&q=80" alt="" className="w-full h-full object-cover" />
         </div>
-        <div className="absolute bottom-24 left-[4%] w-40 h-52 bg-surface-container border border-white/10 -rotate-12 animate-float-delayed rounded-lg overflow-hidden hidden lg:block opacity-40">
+        <div className="absolute bottom-24 left-[4%] w-40 h-52 bg-surface-container border border-on-surface/10 -rotate-12 animate-float-delayed rounded-lg overflow-hidden hidden lg:block opacity-50">
           <img src="https://images.unsplash.com/photo-1549880338-65ddcdfd017b?w=400&q=80" alt="" className="w-full h-full object-cover" />
         </div>
 
@@ -88,7 +88,7 @@ export default function Home() {
             <div className="section-label animate-fade-up">Художественная мастерская · Тольятти</div>
             <h1 className="font-serif text-5xl md:text-8xl font-black tracking-tight leading-none mb-8 text-on-surface animate-fade-up" style={{ animationDelay: '100ms' }}>
               Картина на заказ —<br />
-              <span className="text-primary" style={{ textShadow: '0 0 60px rgba(255,180,165,0.25)' }}>
+              <span className="text-primary" style={{ textShadow: '0 0 60px rgba(152,117,54,0.20)' }}>
                 от художника
               </span>
             </h1>
@@ -114,12 +114,12 @@ export default function Home() {
 
       {/* ═══ О НАС ══════════════════════════════════════════════════════════ */}
       <section id="about" className="py-40 bg-surface relative overflow-hidden">
-        <div className="absolute -right-16 top-0 text-[16rem] font-black text-white/[0.025] font-serif leading-none select-none pointer-events-none">ART</div>
+        <div className="absolute -right-16 top-0 text-[16rem] font-black text-on-surface/[0.04] font-serif leading-none select-none pointer-events-none">ART</div>
         <div className="max-w-7xl mx-auto px-6 md:px-12">
           <div className="grid md:grid-cols-2 gap-20 items-center">
             <FadeIn>
               <div className="relative">
-                <div className="aspect-[4/5] bg-white/5 p-4 rounded-lg transform -rotate-2 hover:rotate-0 transition-transform duration-700">
+                <div className="aspect-[4/5] bg-surface-high p-4 rounded-lg transform -rotate-2 hover:rotate-0 transition-transform duration-700">
                   <img src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=700&q=85"
                     alt="Художник за работой" className="w-full h-full object-cover rounded grayscale hover:grayscale-0 transition-all duration-1000" />
                 </div>
@@ -159,7 +159,7 @@ export default function Home() {
             {features.map((f, i) => (
               <FadeIn key={f.title} delay={i * 120}>
                 <div className="glass p-10 rounded-lg hover:border-primary/30 transition-all duration-500 group h-full">
-                  <div className={`w-14 h-14 flex items-center justify-center rounded-full bg-white/5 ${f.bg} transition-colors duration-500 mb-8 text-2xl ${f.color}`}>{f.icon}</div>
+                  <div className={`w-14 h-14 flex items-center justify-center rounded-full bg-on-surface/5 ${f.bg} transition-colors duration-500 mb-8 text-2xl ${f.color}`}>{f.icon}</div>
                   <h3 className="font-serif text-2xl font-bold mb-4 text-on-surface">{f.title}</h3>
                   <p className="text-on-surface/50 leading-relaxed">{f.desc}</p>
                 </div>
@@ -181,7 +181,7 @@ export default function Home() {
             {steps.map((s, i) => (
               <FadeIn key={s.num} delay={i * 100}>
                 <div className="relative">
-                  <div className="text-[4rem] font-serif font-black text-white/[0.04] leading-none mb-4 -ml-2">{s.num}</div>
+                  <div className="text-[4rem] font-serif font-black text-on-surface/[0.06] leading-none mb-4 -ml-2">{s.num}</div>
                   <div className="w-16 h-16 rounded-full border border-primary/30 flex items-center justify-center text-primary font-bold mb-6 bg-surface">{i + 1}</div>
                   <h3 className="font-serif text-xl font-bold mb-3 text-on-surface">{s.title}</h3>
                   <p className="text-on-surface/50 text-sm leading-relaxed">{s.desc}</p>
@@ -239,7 +239,7 @@ export default function Home() {
             ].map(item => (
               <FadeIn key={item.size}>
                 <div className={`p-8 rounded-lg text-center transition-all duration-300
-                  ${item.pop ? 'bg-primary text-on-primary shadow-[0_24px_48px_rgba(255,180,165,0.2)] md:-translate-y-4' : 'glass hover:border-secondary/30'}`}>
+                  ${item.pop ? 'bg-primary text-on-primary shadow-[0_24px_48px_rgba(152,117,54,0.25)] md:-translate-y-4' : 'glass hover:border-secondary/30'}`}>
                   {item.pop && <div className="text-xs font-bold uppercase tracking-widest mb-3 opacity-70">Популярный</div>}
                   <div className={`font-serif text-2xl font-black mb-1 ${item.pop ? 'text-on-primary' : 'text-secondary'}`}>{item.price}</div>
                   <div className={`text-sm font-bold mb-1 ${item.pop ? 'text-on-primary' : 'text-on-surface'}`}>{item.size}</div>
@@ -296,7 +296,7 @@ export default function Home() {
                   <p className="text-on-surface/70 leading-relaxed flex-1 mb-6 text-sm">{t.text}</p>
                   <div className="flex items-center justify-between">
                     <div className="font-bold text-on-surface text-sm">{t.name}</div>
-                    <div className="text-xs text-on-surface/40 bg-white/5 px-3 py-1 rounded-full">{t.detail}</div>
+                    <div className="text-xs text-on-surface/40 bg-on-surface/5 px-3 py-1 rounded-full">{t.detail}</div>
                   </div>
                 </div>
               </FadeIn>
@@ -309,7 +309,7 @@ export default function Home() {
       <section className="py-40 bg-surface-container relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(255,180,165,0.06) 0%, transparent 70%)' }} />
+            style={{ background: 'radial-gradient(circle, rgba(152,117,54,0.08) 0%, transparent 70%)' }} />
         </div>
         <FadeIn className="max-w-3xl mx-auto px-6 text-center relative z-10">
           <div className="section-label">08 / Начнём</div>
@@ -339,7 +339,7 @@ export default function Home() {
                   { icon: '◎', label: 'Адрес',         val: 'Тольятти, ул. Победы, 32', href: null,                       color: 'text-primary'   },
                 ].map(c => (
                   <li key={c.label} className="flex items-start gap-6 group">
-                    <div className={`w-12 h-12 rounded-full bg-white/5 flex items-center justify-center shrink-0 ${c.color} group-hover:scale-110 transition-transform`}>{c.icon}</div>
+                    <div className={`w-12 h-12 rounded-full bg-on-surface/5 flex items-center justify-center shrink-0 ${c.color} group-hover:scale-110 transition-transform`}>{c.icon}</div>
                     <div>
                       <div className="text-xs text-on-surface/40 uppercase tracking-widest mb-1">{c.label}</div>
                       {c.href
@@ -355,8 +355,8 @@ export default function Home() {
                 alt="Художник" className="w-full h-full object-cover opacity-30 grayscale" />
               <div className="absolute inset-0 bg-gradient-to-r from-surface-container via-transparent to-transparent" />
               <div className="absolute bottom-12 right-12 text-right">
-                <div className="font-serif text-6xl font-black text-white/10">ART</div>
-                <div className="font-serif text-6xl font-black text-white/10 -mt-4">STUDIO</div>
+                <div className="font-serif text-6xl font-black text-on-surface/10">ART</div>
+                <div className="font-serif text-6xl font-black text-on-surface/10 -mt-4">STUDIO</div>
               </div>
             </div>
           </div>
