@@ -38,6 +38,6 @@
 
 /* Scrollbar */
 ::-webkit-scrollbar       { width: 6px; }
-::-webkit-scrollbar-track { background: #5f76b8; }
-::-webkit-scrollbar-thumb { background: #495f98; border-radius: 3px; }
+::-webkit-scrollbar-track { background: #f7f2ed; }
+::-webkit-scrollbar-thumb { background: #c7b9aa; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #ffb4a5; }

@@ -75,7 +75,7 @@ export default function Home() {
 
       {/* ═══ HERO ═══════════════════════════════════════════════════════════ */}
       <section className="relative min-h-screen flex items-center pt-24 overflow-hidden"
-        style={{ background: 'radial-gradient(ellipse at 70% 40%, rgba(196,211,248,0.55) 0%, rgba(95,118,184,0.92) 58%)' }}>
+        style={{ background: 'radial-gradient(ellipse at 70% 40%, #fffdfb 0%, #fcf9f6 58%)' }}>
         <div className="absolute top-24 right-[8%] w-56 h-72 bg-surface-container border border-white/10 rotate-6 animate-float rounded-lg overflow-hidden hidden lg:block opacity-60">
           <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=400&q=80" alt="" className="w-full h-full object-cover" />
         </div>
