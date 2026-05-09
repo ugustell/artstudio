@@ -367,10 +367,10 @@ async function main() {
     return sMap[s].price + fMap[f].priceExtra + dMap[d].priceExtra + pMap[p].priceExtra;
   }
 
-  // 2. Удаляем все существующие заказы
+  // 2. Удаляем все существующие заказы и сбрасываем счётчик ID
   console.log('🗑  Удаляем старые заказы...');
-  await prisma.orderItem.deleteMany({});
-  await prisma.order.deleteMany({});
+  await prisma.$executeRaw`TRUNCATE TABLE order_items RESTART IDENTITY CASCADE`;
+  await prisma.$executeRaw`TRUNCATE TABLE orders RESTART IDENTITY CASCADE`;
 
   // 3. Создаём 35 новых заказов
   console.log('✍️  Создаём 35 заказов...');
