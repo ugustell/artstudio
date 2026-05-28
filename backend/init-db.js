@@ -16,7 +16,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Проверяем нужен ли seed — если админ уже есть, всё ок
-  const adminCount = await prisma.admin.count();
+  const adminCount = await prisma.user.count({ where: { role: 'admin' } });
   if (adminCount > 0) {
     console.log('✅ БД уже инициализирована, пропускаем seed');
     return;
@@ -24,8 +24,13 @@ async function main() {
 
   console.log('🌱 БД пустая — заполняем начальными данными...');
 
-  await prisma.admin.create({
-    data: { login: 'admin', passwordHash: await bcrypt.hash('admin123', 10) },
+  await prisma.user.create({
+    data: {
+      login: 'admin',
+      name: 'Администратор',
+      role: 'admin',
+      passwordHash: await bcrypt.hash('admin123', 10),
+    },
   });
 
   const sizesData = [

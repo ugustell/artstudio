@@ -14,10 +14,15 @@ async function main() {
   await prisma.format.deleteMany();
   await prisma.size.deleteMany();
   await prisma.user.deleteMany();
-  await prisma.admin.upsert({
+  await prisma.user.upsert({
     where:  { login: 'admin' },
     update: {},
-    create: { login: 'admin', passwordHash: await bcrypt.hash('admin123', 10) },
+    create: {
+      login: 'admin',
+      name: 'Администратор',
+      role: 'admin',
+      passwordHash: await bcrypt.hash('admin123', 10),
+    },
   });
 
   // ── Размеры холста (базовая цена) ─────────────────────────────────────────
@@ -245,7 +250,7 @@ async function main() {
 
   console.log('\n🎨 База данных готова!');
   console.log('─────────────────────────────────────────');
-  console.log('👤 Админ:       admin / admin123');
+  console.log('👤 Админ:       admin / admin123 (роль admin в таблице users)');
   console.log('👥 Пользователи: 20 аккаунтов, пароль: user123');
   console.log('   Пример:      marina@mail.ru / user123');
   console.log('─────────────────────────────────────────');

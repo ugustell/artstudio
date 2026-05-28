@@ -64,8 +64,10 @@ model User {
   id           Int      @id @default(autoincrement())
   createdAt    DateTime @default(now()) @map("created_at")
   name         String
-  phone        String
-  email        String   @unique
+  phone        String   @default("")
+  email        String?  @unique
+  login        String?  @unique
+  role         String   @default("client")
   address      String   @default("")
   passwordHash String   @map("password_hash")
   orders       Order[]
@@ -133,14 +135,4 @@ model OrderItem {
   plot       Plot?   @relation(fields: [plotId],    references: [id])
 
   @@map("order_items")
-}
-
-// ─── Администраторы ───────────────────────────────────────────────────────────
-
-model Admin {
-  id           Int    @id @default(autoincrement())
-  login        String @unique
-  passwordHash String @map("password_hash")
-
-  @@map("admins")
 }

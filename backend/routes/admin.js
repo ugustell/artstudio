@@ -15,7 +15,10 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const admin = await prisma.admin.findUnique({ where: { login } });
+    // Администратор — это запись в таблице users с ролью "admin"
+    const admin = await prisma.user.findFirst({
+      where: { login, role: 'admin' },
+    });
     if (!admin) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
     }
@@ -26,7 +29,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: admin.id, login: admin.login },
+      { id: admin.id, login: admin.login, role: admin.role },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );

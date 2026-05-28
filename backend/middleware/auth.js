@@ -10,6 +10,10 @@ module.exports = function authMiddleware(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Доступ к админ-функциям только для роли "admin"
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({ error: 'Недостаточно прав' });
+    }
     req.admin = decoded;
     next();
   } catch (err) {
