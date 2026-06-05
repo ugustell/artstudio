@@ -81,7 +81,7 @@ export default function LoginPage() {
               <form onSubmit={handleLogin} className="space-y-6">
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Email</label>
-                  <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
+                  <input type="text" value={form.email} onChange={e => set('email', e.target.value)}
                     placeholder="you@example.com" className="input-field" autoComplete="email" />
                 </div>
                 <div>
@@ -108,7 +108,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Email</label>
-                  <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
+                  <input type="text" value={form.email} onChange={e => set('email', e.target.value)}
                     placeholder="you@example.com" className="input-field" />
                 </div>
                 <div>
