@@ -78,7 +78,7 @@ export default function LoginPage() {
 
           <div className="glass p-8 rounded-xl">
             {tab === 'login' ? (
-              <form onSubmit={handleLogin} className="space-y-6">
+              <form onSubmit={handleLogin} noValidate className="space-y-6">
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">Email</label>
                   <input type="text" value={form.email} onChange={e => set('email', e.target.value)}
@@ -95,7 +95,7 @@ export default function LoginPage() {
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleRegister} className="space-y-5">
+              <form onSubmit={handleRegister} noValidate className="space-y-5">
                 <div>
                   <label className="text-xs text-on-surface/40 uppercase tracking-widest block mb-2">ФИО</label>
                   <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
