@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [tab, setTab] = useState('login'); // 'login' | 'register'
   const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', confirm: '' });
   const [error, setError] = useState('');
+  const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   const [loading, setLoading] = useState(false);
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setError(''); };
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) return setError('Заполните все поля');
+    if (!isValidEmail(form.email)) return setError('Некорректный формат email');
     setLoading(true);
     try {
       const res  = await fetch(`${API}/api/users/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: form.email, password: form.password }) });
@@ -34,6 +36,7 @@ export default function LoginPage() {
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!form.name || !form.phone || !form.email || !form.password) return setError('Заполните все поля');
+    if (!isValidEmail(form.email)) return setError('Некорректный формат email');
     if (form.password !== form.confirm) return setError('Пароли не совпадают');
     if (form.password.length < 6) return setError('Пароль — минимум 6 символов');
     setLoading(true);
